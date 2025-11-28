@@ -9,6 +9,7 @@ export interface Reaction {
   timestamp: string;
   session_id: string;
   user_id?: string;
+  user_name?: string;  // Added user_name
 }
 
 export interface Question {
@@ -16,6 +17,7 @@ export interface Question {
   timestamp: string;
   session_id: string;
   user_id?: string;
+  user_name?: string;  // Added user_name
 }
 
 export const api = {

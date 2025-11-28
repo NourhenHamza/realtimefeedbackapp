@@ -27,6 +27,14 @@ export default function QuestionFeed({ questions }: QuestionFeedProps) {
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
+  // Get initials from user name
+  const getInitials = (name?: string) => {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -52,23 +60,30 @@ export default function QuestionFeed({ questions }: QuestionFeedProps) {
               key={`${question.timestamp}-${index}`}
               className="bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow duration-200 pulse-once border-l-4 border-blue-500"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 dark:text-blue-300 text-sm font-bold">
-                      Q
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-sm font-bold">
+                      {getInitials(question.user_name)}
                     </span>
                   </div>
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    {getTimeAgo(question.timestamp)}
-                  </span>
+                  <div className="flex flex-col">
+                    {question.user_name && (
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {question.user_name}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {getTimeAgo(question.timestamp)}
+                    </span>
+                  </div>
                 </div>
                 <span className="text-xs text-gray-400 dark:text-gray-500">
                   {formatTime(question.timestamp)}
                 </span>
               </div>
 
-              <p className="text-gray-800 dark:text-gray-200 leading-relaxed">
+              <p className="text-gray-800 dark:text-gray-200 leading-relaxed pl-13">
                 {question.question_text}
               </p>
             </div>

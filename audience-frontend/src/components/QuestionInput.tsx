@@ -6,11 +6,12 @@ import { ChangeEvent, FormEvent, useState } from 'react';
 
 interface QuestionInputProps {
   sessionId: string;
+  userName: string;
 }
 
 const MAX_CHARACTERS = 500;
 
-export default function QuestionInput({ sessionId }: QuestionInputProps) {
+export default function QuestionInput({ sessionId, userName }: QuestionInputProps) {
   const [question, setQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -46,7 +47,8 @@ export default function QuestionInput({ sessionId }: QuestionInputProps) {
       await api.submitQuestion({
         question_text: question.trim(),
         session_id: sessionId,
-        user_id: userId, // Add user_id to prevent duplicates
+        user_id: userId,
+        user_name: userName, // Include user name
       });
 
       setMessage({ type: 'success', text: 'Question submitted successfully!' });

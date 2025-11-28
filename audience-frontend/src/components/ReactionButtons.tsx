@@ -45,9 +45,10 @@ const reactions: ReactionButton[] = [
 
 interface ReactionButtonsProps {
   sessionId: string;
+  userName: string;  // <-- ADDED userName prop
 }
 
-export default function ReactionButtons({ sessionId }: ReactionButtonsProps) {
+export default function ReactionButtons({ sessionId, userName }: ReactionButtonsProps) {
   const [pressedButton, setPressedButton] = useState<ReactionType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -72,7 +73,8 @@ export default function ReactionButtons({ sessionId }: ReactionButtonsProps) {
       await api.submitReaction({
         reaction_type: reactionType,
         session_id: sessionId,
-        user_id: userId, // Add user_id to prevent duplicates
+        user_id: userId,
+        user_name: userName,  // <-- ADDED user_name to API call
       });
 
       setMessage({ type: 'success', text: 'Reaction sent!' });

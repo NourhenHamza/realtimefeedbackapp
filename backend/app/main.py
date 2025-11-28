@@ -364,6 +364,70 @@ async def check_session_status(session_id: str, db: Session = Depends(get_db)):
 
 
 # ============================================================================
+# PRESENTER ENDPOINTS (NEW)
+# ============================================================================
+
+@app.get("/api/presenter/reactions", tags=["Presenter"])
+async def get_reactions(
+    session_id: str = Query(...),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """Get reactions for a session"""
+    try:
+        reactions = db.query(ReactionDB)\
+            .filter(ReactionDB.session_id == session_id)\
+            .order_by(ReactionDB.timestamp.desc())\
+            .limit(limit)\
+            .all()
+        
+        return {
+            "reactions": [
+                {
+                    "reaction_type": r.reaction_type.value,
+                    "timestamp": r.timestamp.isoformat(),
+                    "session_id": r.session_id,
+                    "user_id": r.user_id,
+                    "user_name": r.user_name
+                }
+                for r in reactions
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching reactions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/presenter/questions", tags=["Presenter"])
+async def get_questions(
+    session_id: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Get questions for a session"""
+    try:
+        questions = db.query(QuestionDB)\
+            .filter(QuestionDB.session_id == session_id)\
+            .order_by(QuestionDB.timestamp.desc())\
+            .all()
+        
+        return {
+            "questions": [
+                {
+                    "question_text": q.question_text,
+                    "timestamp": q.timestamp.isoformat(),
+                    "session_id": q.session_id,
+                    "user_id": q.user_id,
+                    "user_name": q.user_name
+                }
+                for q in questions
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching questions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
 # WEBSOCKET ENDPOINT
 # ============================================================================
 

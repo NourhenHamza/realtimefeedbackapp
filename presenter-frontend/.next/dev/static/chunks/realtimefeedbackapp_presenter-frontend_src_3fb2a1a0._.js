@@ -226,11 +226,11 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$prese
 ;
 function QuestionFeed(t0) {
     const $ = (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$compiler$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["c"])(17);
-    if ($[0] !== "e50ffe579673ea5c9c030864f39069ffacd3dec7770367e32e5d2b9c1c572072") {
+    if ($[0] !== "8a38a7313c2b29cce8dd322178cbe0ae7d4148425e457d6a5001bc418d6b0f09") {
         for(let $i = 0; $i < 17; $i += 1){
             $[$i] = Symbol.for("react.memo_cache_sentinel");
         }
-        $[0] = "e50ffe579673ea5c9c030864f39069ffacd3dec7770367e32e5d2b9c1c572072";
+        $[0] = "8a38a7313c2b29cce8dd322178cbe0ae7d4148425e457d6a5001bc418d6b0f09";
     }
     const { questions } = t0;
     let t1;
@@ -243,6 +243,7 @@ function QuestionFeed(t0) {
         ].sort(_QuestionFeedAnonymous);
         const formatTime = _QuestionFeedFormatTime;
         const getTimeAgo = _QuestionFeedGetTimeAgo;
+        const getInitials = _QuestionFeedGetInitials;
         t3 = "space-y-4";
         let t5;
         if ($[6] === Symbol.for("react.memo_cache_sentinel")) {
@@ -251,7 +252,7 @@ function QuestionFeed(t0) {
                 children: "Questions"
             }, void 0, false, {
                 fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                lineNumber: 30,
+                lineNumber: 31,
                 columnNumber: 12
             }, this);
             $[6] = t5;
@@ -273,13 +274,13 @@ function QuestionFeed(t0) {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                        lineNumber: 37,
+                        lineNumber: 38,
                         columnNumber: 67
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                lineNumber: 37,
+                lineNumber: 38,
                 columnNumber: 12
             }, this);
             $[7] = questions.length;
@@ -297,7 +298,7 @@ function QuestionFeed(t0) {
                     children: "💬"
                 }, void 0, false, {
                     fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                    lineNumber: 45,
+                    lineNumber: 46,
                     columnNumber: 113
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -305,51 +306,68 @@ function QuestionFeed(t0) {
                     children: "No questions yet. They'll appear here in real-time."
                 }, void 0, false, {
                     fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                    lineNumber: 45,
+                    lineNumber: 46,
                     columnNumber: 152
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-            lineNumber: 45,
+            lineNumber: 46,
             columnNumber: 41
         }, this) : sortedQuestions.map({
             "QuestionFeed[sortedQuestions.map()]": (question, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                     className: "bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow duration-200 pulse-once border-l-4 border-blue-500",
                     children: [
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "flex items-start justify-between mb-2",
+                            className: "flex items-start justify-between mb-3",
                             children: [
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "flex items-center space-x-2",
+                                    className: "flex items-center space-x-3",
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center",
+                                            className: "w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0",
                                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                className: "text-blue-600 dark:text-blue-300 text-sm font-bold",
-                                                children: "Q"
+                                                className: "text-white text-sm font-bold",
+                                                children: getInitials(question.user_name)
                                             }, void 0, false, {
                                                 fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                                                lineNumber: 46,
-                                                columnNumber: 459
+                                                lineNumber: 47,
+                                                columnNumber: 492
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                                            lineNumber: 46,
+                                            lineNumber: 47,
                                             columnNumber: 359
                                         }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                            className: "text-xs font-medium text-gray-500 dark:text-gray-400",
-                                            children: getTimeAgo(question.timestamp)
-                                        }, void 0, false, {
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: "flex flex-col",
+                                            children: [
+                                                question.user_name && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                    className: "text-sm font-semibold text-gray-800 dark:text-gray-200",
+                                                    children: question.user_name
+                                                }, void 0, false, {
+                                                    fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
+                                                    lineNumber: 47,
+                                                    columnNumber: 639
+                                                }, this),
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                    className: "text-xs text-gray-500 dark:text-gray-400",
+                                                    children: getTimeAgo(question.timestamp)
+                                                }, void 0, false, {
+                                                    fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
+                                                    lineNumber: 47,
+                                                    columnNumber: 740
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
                                             fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                                            lineNumber: 46,
-                                            columnNumber: 542
+                                            lineNumber: 47,
+                                            columnNumber: 585
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                                    lineNumber: 46,
+                                    lineNumber: 47,
                                     columnNumber: 314
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -357,27 +375,27 @@ function QuestionFeed(t0) {
                                     children: formatTime(question.timestamp)
                                 }, void 0, false, {
                                     fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                                    lineNumber: 46,
-                                    columnNumber: 658
+                                    lineNumber: 47,
+                                    columnNumber: 850
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                            lineNumber: 46,
+                            lineNumber: 47,
                             columnNumber: 259
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$realtimefeedbackapp$2f$presenter$2d$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                            className: "text-gray-800 dark:text-gray-200 leading-relaxed",
+                            className: "text-gray-800 dark:text-gray-200 leading-relaxed pl-13",
                             children: question.question_text
                         }, void 0, false, {
                             fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                            lineNumber: 46,
-                            columnNumber: 762
+                            lineNumber: 47,
+                            columnNumber: 954
                         }, this)
                     ]
                 }, `${question.timestamp}-${index}`, true, {
                     fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-                    lineNumber: 46,
+                    lineNumber: 47,
                     columnNumber: 67
                 }, this)
         }["QuestionFeed[sortedQuestions.map()]"]);
@@ -399,7 +417,7 @@ function QuestionFeed(t0) {
             children: t2
         }, void 0, false, {
             fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-            lineNumber: 61,
+            lineNumber: 62,
             columnNumber: 10
         }, this);
         $[10] = t1;
@@ -418,7 +436,7 @@ function QuestionFeed(t0) {
             ]
         }, void 0, true, {
             fileName: "[project]/realtimefeedbackapp/presenter-frontend/src/components/QuestionFeed.tsx",
-            lineNumber: 70,
+            lineNumber: 71,
             columnNumber: 10
         }, this);
         $[13] = t3;
@@ -431,6 +449,16 @@ function QuestionFeed(t0) {
     return t6;
 }
 _c = QuestionFeed;
+function _QuestionFeedGetInitials(name) {
+    if (!name) {
+        return "?";
+    }
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) {
+        return parts[0][0].toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 function _QuestionFeedGetTimeAgo(timestamp_0) {
     const now = new Date().getTime();
     const time = new Date(timestamp_0).getTime();
