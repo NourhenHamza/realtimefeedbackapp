@@ -2,20 +2,29 @@
 
 import QuestionInput from '@/components/QuestionInput';
 import ReactionButtons from '@/components/ReactionButtons';
+import { getUserName, setUserName } from '@/lib/userUtils';
 import React, { useEffect, useState } from 'react';
 
 export default function AudiencePage() {
   const [sessionId, setSessionId] = useState<string>('');
+  const [name, setName] = useState<string>('');
   const [isSessionSet, setIsSessionSet] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string>('');
+  const [step, setStep] = useState<'session' | 'name'>('session');
 
   useEffect(() => {
-    // Try to get session ID from localStorage
+    // Try to get session ID and name from localStorage
     const storedSessionId = localStorage.getItem('audience_session_id');
-    if (storedSessionId) {
+    const storedName = getUserName();
+    
+    if (storedSessionId && storedName) {
       setSessionId(storedSessionId);
+      setName(storedName);
       validateAndJoinSession(storedSessionId);
+    } else if (storedSessionId) {
+      setSessionId(storedSessionId);
+      setStep('name');
     }
   }, []);
 
@@ -36,10 +45,12 @@ export default function AudiencePage() {
         setError('Session not found or has ended');
         localStorage.removeItem('audience_session_id');
         setIsSessionSet(false);
+        setStep('session');
       }
     } catch (err) {
       setError('Failed to connect to server. Is the backend running?');
       setIsSessionSet(false);
+      setStep('session');
     } finally {
       setIsValidating(false);
     }
@@ -48,25 +59,54 @@ export default function AudiencePage() {
   const handleSessionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (sessionId.trim()) {
-      await validateAndJoinSession(sessionId.trim());
-      if (!error) {
-        localStorage.setItem('audience_session_id', sessionId);
+      setIsValidating(true);
+      setError('');
+
+      try {
+        // Check if session is active
+        const response = await fetch(
+          `http://localhost:8000/api/session/${sessionId.trim()}/status`
+        );
+        const result = await response.json();
+
+        if (result.active) {
+          localStorage.setItem('audience_session_id', sessionId);
+          setStep('name'); // Move to name input
+        } else {
+          setError('Session not found or has ended');
+        }
+      } catch (err) {
+        setError('Failed to connect to server. Is the backend running?');
+      } finally {
+        setIsValidating(false);
       }
+    }
+  };
+
+  const handleNameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) {
+      setUserName(name.trim());
+      await validateAndJoinSession(sessionId);
     }
   };
 
   const handleLeaveSession = () => {
     localStorage.removeItem('audience_session_id');
     setSessionId('');
+    setName('');
     setIsSessionSet(false);
     setError('');
+    setStep('session');
   };
 
-  if (!isSessionSet) {
+  // Session ID input screen
+  if (step === 'session' && !isSessionSet) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
+            <div className="text-6xl mb-4">👥</div>
             <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
               Join Session
             </h1>
@@ -108,33 +148,7 @@ export default function AudiencePage() {
               disabled={isValidating}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isValidating ? (
-                <span className="flex items-center justify-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Validating...
-                </span>
-              ) : (
-                'Join Session'
-              )}
+              {isValidating ? 'Validating...' : 'Continue'}
             </button>
           </form>
         </div>
@@ -142,6 +156,72 @@ export default function AudiencePage() {
     );
   }
 
+  // Name input screen
+  if (step === 'name' && !isSessionSet) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="text-6xl mb-4">✏️</div>
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+              Enter Your Name
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Let the presenter know who you are
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              Session: <span className="font-mono font-semibold">{sessionId}</span>
+            </p>
+          </div>
+
+          <form onSubmit={handleNameSubmit} className="space-y-6">
+            <div>
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Your Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., John Doe"
+                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                required
+                disabled={isValidating}
+                maxLength={50}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('session');
+                  setSessionId('');
+                  localStorage.removeItem('audience_session_id');
+                }}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={isValidating}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isValidating ? 'Joining...' : 'Join Session'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // Main session screen
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8">
       <div className="container mx-auto">
@@ -155,6 +235,9 @@ export default function AudiencePage() {
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Session: <span className="font-mono font-semibold">{sessionId}</span>
               </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Name: <span className="font-semibold">{name}</span>
+              </p>
             </div>
             <button
               onClick={handleLeaveSession}
@@ -167,12 +250,12 @@ export default function AudiencePage() {
 
         {/* Reactions Section */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 mb-8">
-          <ReactionButtons sessionId={sessionId} />
+          <ReactionButtons sessionId={sessionId} userName={name} />
         </div>
 
         {/* Questions Section */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
-          <QuestionInput sessionId={sessionId} />
+          <QuestionInput sessionId={sessionId} userName={name} />
         </div>
 
         {/* Footer */}
