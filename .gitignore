@@ -2,6 +2,12 @@
 
 # =========================
 # Frontend/Node.js
+ presenter-frontend/.next/
+ # next.js
+.next/
+/.next/
+*/**/.next/
+presenter-frontend/.next/
 # =========================
 # dependencies
 /node_modules
