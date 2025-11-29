@@ -1,266 +1,191 @@
 'use client';
 
-import QuestionInput from '@/components/QuestionInput';
-import ReactionButtons from '@/components/ReactionButtons';
-import { getUserName, setUserName } from '@/lib/userUtils';
-import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useState } from 'react';
 
-export default function AudiencePage() {
-  const [sessionId, setSessionId] = useState<string>('');
-  const [name, setName] = useState<string>('');
-  const [isSessionSet, setIsSessionSet] = useState(false);
-  const [isValidating, setIsValidating] = useState(false);
-  const [error, setError] = useState<string>('');
-  const [step, setStep] = useState<'session' | 'name'>('session');
+export default function LandingPage() {
+  const [hoveredCard, setHoveredCard] = useState<'audience' | 'presenter' | null>(null);
 
-  useEffect(() => {
-    // Try to get session ID and name from localStorage
-    const storedSessionId = localStorage.getItem('audience_session_id');
-    const storedName = getUserName();
-    
-    if (storedSessionId && storedName) {
-      setSessionId(storedSessionId);
-      setName(storedName);
-      validateAndJoinSession(storedSessionId);
-    } else if (storedSessionId) {
-      setSessionId(storedSessionId);
-      setStep('name');
-    }
-  }, []);
-
-  const validateAndJoinSession = async (sessionIdToValidate: string) => {
-    setIsValidating(true);
-    setError('');
-
-    try {
-      // Check if session is active
-      const response = await fetch(
-        `http://localhost:8000/api/session/${sessionIdToValidate}/status`
-      );
-      const result = await response.json();
-
-      if (result.active) {
-        setIsSessionSet(true);
-      } else {
-        setError('Session not found or has ended');
-        localStorage.removeItem('audience_session_id');
-        setIsSessionSet(false);
-        setStep('session');
-      }
-    } catch (err) {
-      setError('Failed to connect to server. Is the backend running?');
-      setIsSessionSet(false);
-      setStep('session');
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const handleSessionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (sessionId.trim()) {
-      setIsValidating(true);
-      setError('');
-
-      try {
-        // Check if session is active
-        const response = await fetch(
-          `http://localhost:8000/api/session/${sessionId.trim()}/status`
-        );
-        const result = await response.json();
-
-        if (result.active) {
-          localStorage.setItem('audience_session_id', sessionId);
-          setStep('name'); // Move to name input
-        } else {
-          setError('Session not found or has ended');
-        }
-      } catch (err) {
-        setError('Failed to connect to server. Is the backend running?');
-      } finally {
-        setIsValidating(false);
-      }
-    }
-  };
-
-  const handleNameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (name.trim()) {
-      setUserName(name.trim());
-      await validateAndJoinSession(sessionId);
-    }
-  };
-
-  const handleLeaveSession = () => {
-    localStorage.removeItem('audience_session_id');
-    setSessionId('');
-    setName('');
-    setIsSessionSet(false);
-    setError('');
-    setStep('session');
-  };
-
-  // Session ID input screen
-  if (step === 'session' && !isSessionSet) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-          <div className="text-center mb-8">
-            <div className="text-6xl mb-4">👥</div>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-              Join Session
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Enter the session ID provided by your presenter
-            </p>
-          </div>
-
-          <form onSubmit={handleSessionSubmit} className="space-y-6">
-            <div>
-              <label
-                htmlFor="sessionId"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Session ID
-              </label>
-              <input
-                type="text"
-                id="sessionId"
-                value={sessionId}
-                onChange={(e) => {
-                  setSessionId(e.target.value);
-                  setError('');
-                }}
-                placeholder="e.g., session-123"
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                required
-                disabled={isValidating}
-              />
-              {error && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                  ⚠️ {error}
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isValidating}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isValidating ? 'Validating...' : 'Continue'}
-            </button>
-          </form>
-        </div>
-      </main>
-    );
-  }
-
-  // Name input screen
-  if (step === 'name' && !isSessionSet) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-          <div className="text-center mb-8">
-            <div className="text-6xl mb-4">✏️</div>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-              Enter Your Name
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Let the presenter know who you are
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Session: <span className="font-mono font-semibold">{sessionId}</span>
-            </p>
-          </div>
-
-          <form onSubmit={handleNameSubmit} className="space-y-6">
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Your Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., John Doe"
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                required
-                disabled={isValidating}
-                maxLength={50}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep('session');
-                  setSessionId('');
-                  localStorage.removeItem('audience_session_id');
-                }}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
-              >
-                Back
-              </button>
-              <button
-                type="submit"
-                disabled={isValidating}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isValidating ? 'Joining...' : 'Join Session'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </main>
-    );
-  }
-
-  // Main session screen
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8">
-      <div className="container mx-auto">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 via-blue-100 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+      <div className="max-w-6xl w-full">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8 max-w-2xl mx-auto">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-1">
-                Audience Feedback
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Session: <span className="font-mono font-semibold">{sessionId}</span>
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Name: <span className="font-semibold">{name}</span>
-              </p>
-            </div>
-            <button
-              onClick={handleLeaveSession}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+        <div className="text-center mb-12">
+          <div className="text-7xl mb-6 animate-bounce">🎤</div>
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-800 dark:text-white mb-4">
+            Real-Time Feedback
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-2">
+            Interactive Presentation Platform with AI Insights
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Get instant feedback from your audience or participate in live sessions
+          </p>
+        </div>
+
+        {/* Choice Cards */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Audience Card - Links to /audience route */}
+          <Link href="/audience">
+            <div
+              onMouseEnter={() => setHoveredCard('audience')}
+              onMouseLeave={() => setHoveredCard(null)}
+              className={`bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-3xl border-4 ${
+                hoveredCard === 'audience'
+                  ? 'border-blue-500 dark:border-blue-400'
+                  : 'border-transparent'
+              }`}
             >
-              Leave
-            </button>
+              <div className="text-center">
+                <div className="text-6xl mb-6">👥</div>
+                <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">
+                  Join as Audience
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  Participate in a live presentation session
+                </p>
+                
+                {/* Features */}
+                <div className="space-y-3 text-left mb-8">
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-500 text-xl">✓</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Send real-time reactions (Speed up, Slow down, Show code, I'm lost)
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-500 text-xl">✓</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Ask questions anonymously or with your name
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-500 text-xl">✓</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Simple and intuitive interface
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    💡 You'll need a <strong>Session ID</strong> from the presenter
+                  </p>
+                </div>
+
+                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-200 transform active:scale-95 shadow-lg hover:shadow-xl">
+                  Join Session →
+                </button>
+              </div>
+            </div>
+          </Link>
+
+          {/* Presenter Card - Links to localhost:3001 (presenter frontend) */}
+          <a href="http://localhost:3001" target="_blank" rel="noopener noreferrer">
+            <div
+              onMouseEnter={() => setHoveredCard('presenter')}
+              onMouseLeave={() => setHoveredCard(null)}
+              className={`bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-3xl border-4 ${
+                hoveredCard === 'presenter'
+                  ? 'border-purple-500 dark:border-purple-400'
+                  : 'border-transparent'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-6xl mb-6">🎤</div>
+                <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">
+                  Create Session
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  Start presenting with AI-powered insights
+                </p>
+                
+                {/* Features */}
+                <div className="space-y-3 text-left mb-8">
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-500 text-xl">✓</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Real-time audience reaction heatmaps
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-500 text-xl">✓</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      AI-powered pacing alerts and sentiment analysis
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-500 text-xl">✓</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Question grouping and comprehensive session summaries
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 mb-6">
+                  <p className="text-xs text-purple-800 dark:text-purple-200">
+                    🤖 Powered by <strong>AI insights</strong> - Get instant feedback
+                  </p>
+                </div>
+
+                <button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-200 transform active:scale-95 shadow-lg hover:shadow-xl">
+                  Start Presenting →
+                </button>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        {/* Features Footer */}
+        <div className="mt-16 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-4xl mx-auto">
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
+              ✨ Key Features
+            </h3>
+            <div className="grid md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="text-4xl mb-3">🔴</div>
+                <h4 className="font-semibold text-gray-800 dark:text-white mb-2">
+                  Real-Time
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Instant feedback via WebSocket
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-3">🤖</div>
+                <h4 className="font-semibold text-gray-800 dark:text-white mb-2">
+                  AI Insights
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Smart analysis with Gemini
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-3">📊</div>
+                <h4 className="font-semibold text-gray-800 dark:text-white mb-2">
+                  Analytics
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Detailed session summaries
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-3">🎯</div>
+                <h4 className="font-semibold text-gray-800 dark:text-white mb-2">
+                  Easy to Use
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  No setup required
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Reactions Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 mb-8">
-          <ReactionButtons sessionId={sessionId} userName={name} />
-        </div>
-
-        {/* Questions Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
-          <QuestionInput sessionId={sessionId} userName={name} />
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-gray-600 dark:text-gray-400 text-sm">
-          <p>Your feedback helps improve the presentation in real-time</p>
+        <div className="mt-12 text-center text-gray-600 dark:text-gray-400 text-sm">
+          <p>Made with ❤️ for better presentations</p>
         </div>
       </div>
     </main>
