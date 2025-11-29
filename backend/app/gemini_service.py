@@ -18,14 +18,11 @@ logger = logging.getLogger(__name__)
 class GeminiService:
     """
     Service for interacting with Google Gemini API
-
-    Uses gemini-2.5-flash by default (free, fast).
-    Falls back to alternate models if the chosen model is not supported.
     """
 
-    # Preferred model list in order of preference
     PREFERRED_MODELS = [
-        "gemini-2.5-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash",
         "gemini-1.5-pro",
         "gemini-1.0-pro"
     ]
@@ -37,7 +34,6 @@ class GeminiService:
 
         genai.configure(api_key=api_key)
 
-        # Try to initialize a model from the preferred list
         self.model_name = None
         self.model = None
         for m in self.PREFERRED_MODELS:
@@ -51,12 +47,18 @@ class GeminiService:
                 continue
 
         if self.model is None:
-            # As a last resort, initialize the first preferred model
             self.model_name = self.PREFERRED_MODELS[0]
             self.model = genai.GenerativeModel(self.model_name)
             logger.info(f"Fallback: Gemini Service initialized with model: {self.model_name}")
 
-        # Rate limiting tracking
+        # Safety settings to reduce blocks
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+
         self.last_request_time = 0
         self.min_request_interval = 1.0
 
@@ -75,10 +77,7 @@ class GeminiService:
         self.last_request_time = time.time()
 
     async def _try_switch_model_on_404(self, error_msg: str) -> bool:
-        """
-        If 404 / model not found detected, try to switch to the next model in PREFERRED_MODELS.
-        Returns True if switched and ready to retry, False otherwise.
-        """
+        """Switch to next available model on 404"""
         if any(token in error_msg.lower() for token in ("404", "not found", "model not found")):
             logger.warning("Model not found error detected. Attempting to switch models...")
             try:
@@ -106,16 +105,7 @@ class GeminiService:
         retry_count: int = 3
     ) -> Optional[str]:
         """
-        Generate content using Gemini API with retry logic
-
-        Args:
-            prompt: The prompt to send to Gemini
-            temperature: Sampling temperature (0.0 to 1.0)
-            max_tokens: Maximum tokens to generate
-            retry_count: Number of retries on failure
-
-        Returns:
-            Generated text or None if error
+        Generate content using Gemini API with retry logic and safety handling
         """
         for attempt in range(retry_count):
             try:
@@ -129,25 +119,45 @@ class GeminiService:
                 response = await asyncio.to_thread(
                     self.model.generate_content,
                     prompt,
-                    generation_config=generation_config
+                    generation_config=generation_config,
+                    safety_settings=self.safety_settings
                 )
 
-                if response is None:
-                    logger.warning(f"Empty response object from Gemini (attempt {attempt + 1}/{retry_count})")
-                    raise RuntimeError("Empty response")
+                # Check if response was blocked by safety filters
+                if hasattr(response, 'prompt_feedback'):
+                    block_reason = getattr(response.prompt_feedback, 'block_reason', None)
+                    if block_reason and block_reason != 0:
+                        logger.warning(f"Content blocked by safety filter: {block_reason}")
+                        return None
 
-                text = getattr(response, "text", None)
-                if not text:
-                    try:
-                        choices = getattr(response, "choices", None)
-                        if choices and len(choices) > 0:
-                            text = choices[0].get("message", {}).get("content") if isinstance(choices[0], dict) else getattr(choices[0], "text", None)
-                    except Exception:
-                        text = None
+                # Check if response has parts
+                if not hasattr(response, 'parts') or not response.parts:
+                    # Check finish_reason
+                    if hasattr(response, 'candidates') and response.candidates:
+                        finish_reason = response.candidates[0].finish_reason
+                        if finish_reason == 2:  # SAFETY
+                            logger.warning("Response blocked by safety filters (finish_reason=2)")
+                            return None
+                        elif finish_reason == 3:  # RECITATION
+                            logger.warning("Response blocked due to recitation (finish_reason=3)")
+                            return None
+                    
+                    logger.warning(f"No valid parts in response (attempt {attempt + 1}/{retry_count})")
+                    raise RuntimeError("No valid parts in response")
 
+                # Extract text safely
+                text = None
+                try:
+                    text = response.text
+                except ValueError as e:
+                    logger.warning(f"Could not access response.text: {e}")
+                    # Try to extract from parts directly
+                    if response.parts:
+                        text = ''.join(part.text for part in response.parts if hasattr(part, 'text'))
+                
                 if text:
-                    return text
-
+                    return text.strip()
+                
                 logger.warning(f"No text extracted from response (attempt {attempt + 1}/{retry_count})")
                 raise RuntimeError("No text in response")
 
@@ -155,11 +165,13 @@ class GeminiService:
                 error_msg = str(e)
                 logger.debug(f"Generate attempt {attempt+1} error: {error_msg[:500]}")
 
+                # Try to switch model on 404
                 switched = await self._try_switch_model_on_404(error_msg)
                 if switched:
                     logger.info("Retrying generation with fallback model...")
                     continue
 
+                # Handle rate limits
                 if "429" in error_msg or "quota" in error_msg.lower() or "resource exhausted" in error_msg.lower():
                     if attempt < retry_count - 1:
                         retry_delay = 10
@@ -176,6 +188,7 @@ class GeminiService:
                         logger.error("Rate limit exceeded after retries")
                         return None
 
+                # Backoff for transient errors
                 if attempt < retry_count - 1:
                     backoff = 2 ** attempt
                     logger.warning(f"Transient error, retrying in {backoff}s (attempt {attempt+1}/{retry_count})")
@@ -192,9 +205,7 @@ class GeminiService:
         reaction_summary: Dict[str, int],
         time_window_minutes: int = 2
     ) -> Optional[Dict[str, Any]]:
-        """
-        Analyze presentation pacing based on reactions
-        """
+        """Analyze presentation pacing based on reactions"""
         prompt = f"""You are an AI assistant helping presenters improve their presentation delivery.
 
 Analyze the following audience reactions from the last {time_window_minutes} minutes:
@@ -245,9 +256,7 @@ SENTIMENT: [sentiment word]
         questions: list,
         max_themes: int = 5
     ) -> Optional[Dict[str, Any]]:
-        """
-        Group similar questions by theme
-        """
+        """Group similar questions by theme"""
         if not questions:
             return None
 
@@ -333,15 +342,7 @@ QUESTION: [representative question text]
         self,
         questions: List[Dict[str, str]]
     ) -> Optional[Dict[str, Any]]:
-        """
-        Analyze sentiment/emotion of multiple questions
-        
-        Args:
-            questions: List of question dicts with 'text' key
-            
-        Returns:
-            Dict with sentiments list and distribution, or None
-        """
+        """Analyze sentiment/emotion of multiple questions"""
         if not questions:
             return None
 

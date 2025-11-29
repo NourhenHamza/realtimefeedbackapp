@@ -54,6 +54,7 @@ export default function PresenterPage() {
   const [aiAlerts, setAiAlerts] = useState<AIAlert[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
+  const [isEndingSession, setIsEndingSession] = useState(false);
 
   const handleWebSocketMessage = useCallback((data: any) => {
     console.log('📨 WebSocket message received:', data.type);
@@ -105,18 +106,21 @@ export default function PresenterPage() {
     }
     else if (data.type === 'session_ended') {
       console.log('🛑 Session ended by server');
-      alert('Session has been ended');
-      localStorage.removeItem('presenter_session_id');
-      setSessionId('');
-      setIsSessionActive(false);
-      setReactions([]);
-      setQuestions([]);
-      setAiAlerts([]);
+      // Don't clear state immediately - wait for summary
+      if (!isEndingSession) {
+        alert('Session has been ended');
+        localStorage.removeItem('presenter_session_id');
+        setSessionId('');
+        setIsSessionActive(false);
+        setReactions([]);
+        setQuestions([]);
+        setAiAlerts([]);
+      }
     }
-  }, []);
+  }, [isEndingSession]);
 
   const { status, reconnect, sendMessage, disconnect } = useWebSocket({
-    url: isSessionActive ? api.getWebSocketUrl(sessionId) : '',
+    url: isSessionActive && !isEndingSession ? api.getWebSocketUrl(sessionId) : '',
     onMessage: handleWebSocketMessage,
   });
 
@@ -170,13 +174,20 @@ export default function PresenterPage() {
   const handleEndSession = async () => {
     if (!window.confirm('Are you sure you want to end this session? You will receive a detailed summary.')) return;
 
-    try {
-      // Send end_session message via WebSocket
-      sendMessage({ type: 'end_session' });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      disconnect();
+    setIsEndingSession(true);
 
-      // Delete session from backend and get summary
+    try {
+      // 1. Send end_session message via WebSocket
+      sendMessage({ type: 'end_session' });
+      
+      // 2. Wait a moment for message to be sent
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      
+      // 3. Disconnect websocket
+      disconnect();
+      
+      // 4. Call DELETE endpoint to get summary
+      console.log('📊 Requesting session summary...');
       const response = await fetch(`http://localhost:8000/api/session/${sessionId}`, { 
         method: 'DELETE' 
       });
@@ -185,86 +196,107 @@ export default function PresenterPage() {
         const data = await response.json();
         console.log('📊 Received session summary:', data.summary);
         
-        // Show summary modal
+        // 5. Show summary modal BEFORE clearing state
         if (data.summary && !data.summary.error) {
           setSessionSummary(data.summary);
+          console.log('✅ Summary modal should now display');
         } else {
           console.error('Summary generation failed:', data.summary?.error);
           alert('Session ended, but summary generation failed. Check console for details.');
+          // Clear state even if summary failed
+          clearSessionState();
         }
+      } else {
+        console.error('Failed to end session');
+        alert('Failed to end session properly');
+        clearSessionState();
       }
-
-      // Clear local state
-      localStorage.removeItem('presenter_session_id');
-      setSessionId('');
-      setIsSessionActive(false);
-      setReactions([]);
-      setQuestions([]);
-      setAiAlerts([]);
       
-      console.log('✅ Session ended successfully');
     } catch (error) {
       console.error('Error ending session:', error);
-      // Clean up anyway
-      localStorage.removeItem('presenter_session_id');
-      setSessionId('');
-      setIsSessionActive(false);
-      setReactions([]);
-      setQuestions([]);
-      setAiAlerts([]);
+      alert('Error ending session');
+      clearSessionState();
+    } finally {
+      setIsEndingSession(false);
     }
   };
+
+  // Helper function to clear session state
+  const clearSessionState = useCallback(() => {
+    localStorage.removeItem('presenter_session_id');
+    setSessionId('');
+    setIsSessionActive(false);
+    setReactions([]);
+    setQuestions([]);
+    setAiAlerts([]);
+    console.log('✅ Session state cleared');
+  }, []);
+
+  // Handle summary modal close
+  const handleSummaryClose = useCallback(() => {
+    setSessionSummary(null);
+    // NOW clear the session state
+    clearSessionState();
+  }, [clearSessionState]);
 
   // Session creation screen
   if (!isSessionActive) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-          <div className="text-center mb-8">
-            <div className="text-6xl mb-4">🎤</div>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-              Presenter Dashboard
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Create a new session with AI insights
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
-                <span className="font-semibold">✨ Auto-generated Session ID</span>
-                <br />
-                <span className="text-xs">A unique ID will be created for your session</span>
+      <>
+        <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <div className="text-center mb-8">
+              <div className="text-6xl mb-4">🎤</div>
+              <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+                Presenter Dashboard
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300">
+                Create a new session with AI insights
               </p>
             </div>
 
-            <button
-              onClick={handleCreateSession}
-              disabled={isCreating}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isCreating ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Creating Session...
-                </span>
-              ) : (
-                '🚀 Create New Session'
-              )}
-            </button>
+            <div className="space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+                  <span className="font-semibold">✨ Auto-generated Session ID</span>
+                  <br />
+                  <span className="text-xs">A unique ID will be created for your session</span>
+                </p>
+              </div>
 
-            <div className="text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                💡 The session ID will be automatically generated and displayed
-              </p>
+              <button
+                onClick={handleCreateSession}
+                disabled={isCreating}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isCreating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Creating Session...
+                  </span>
+                ) : (
+                  '🚀 Create New Session'
+                )}
+              </button>
+
+              <div className="text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  💡 The session ID will be automatically generated and displayed
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
+
+        {/* Show summary modal even when session is not active */}
+        <SessionSummaryModal 
+          summary={sessionSummary} 
+          onClose={handleSummaryClose} 
+        />
+      </>
     );
   }
 
@@ -305,10 +337,23 @@ export default function PresenterPage() {
                 <ConnectionStatus status={status} onReconnect={reconnect} />
                 <button
                   onClick={handleEndSession}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                  disabled={isEndingSession}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>End Session</span>
-                  <span className="text-xs">(Get Summary)</span>
+                  {isEndingSession ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Ending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>End Session</span>
+                      <span className="text-xs">(Get Summary)</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -357,7 +402,7 @@ export default function PresenterPage() {
       {/* Session Summary Modal */}
       <SessionSummaryModal 
         summary={sessionSummary} 
-        onClose={() => setSessionSummary(null)} 
+        onClose={handleSummaryClose} 
       />
     </>
   );

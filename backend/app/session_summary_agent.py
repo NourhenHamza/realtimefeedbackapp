@@ -5,13 +5,13 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 import logging
-import google.generativeai as genai
-import os
+import json
+import re
+
+# Use the gemini_service instead of direct API calls
+from gemini_service import get_gemini_service
 
 logger = logging.getLogger(__name__)
-
-# Configure Gemini
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
 
 class SessionSummaryAgent:
@@ -22,7 +22,8 @@ class SessionSummaryAgent:
     
     def __init__(self, session_id: str):
         self.session_id = session_id
-        self.model = genai.GenerativeModel('gemini-pro')
+        # Use the centralized Gemini service (handles model selection from config)
+        self.gemini = get_gemini_service()
         logger.info(f"📊 Session Summary Agent initialized for session {session_id}")
     
     async def generate_session_summary(
@@ -168,49 +169,75 @@ class SessionSummaryAgent:
             # Use Gemini to identify themes
             question_texts = [q.get('question_text', '') for q in questions[:50]]
             
-            prompt = f"""Analyze these questions from a presentation and identify the main themes and concerns:
+            # Sanitize questions to avoid safety filters
+            sanitized_questions = []
+            for i, q in enumerate(question_texts):
+                # Clean the text - remove special chars, limit length
+                clean_q = q.strip().replace('\n', ' ').replace('"', "'")[:200]
+                sanitized_questions.append(f"{i+1}. {clean_q}")
+            
+            prompt = f"""You are analyzing audience questions from a technical presentation.
 
-Questions:
-{chr(10).join(f"{i+1}. {q}" for i, q in enumerate(question_texts))}
+{len(sanitized_questions)} questions were asked:
+{chr(10).join(sanitized_questions)}
 
-Provide:
-1. Top 5 themes (with counts)
-2. Top 3 concerns or confusion points
-3. Overall question quality assessment
+Categorize these into themes and identify concerns.
 
-Format as JSON:
+IMPORTANT: Return ONLY valid JSON, no markdown, no extra text.
+
+Response format:
 {{
-    "themes": [
-        {{"theme": "...", "count": X, "example": "..."}},
-        ...
-    ],
-    "concerns": ["...", "...", "..."],
-    "quality_assessment": "..."
+    "themes": [{{"theme": "topic name", "count": 1, "example": "sample question"}}],
+    "concerns": ["concern 1", "concern 2"],
+    "quality_assessment": "brief assessment"
 }}"""
 
-            response = await asyncio.to_thread(
-                self.model.generate_content,
-                prompt
+            # Use gemini service
+            response = await self.gemini.generate_content(
+                prompt,
+                temperature=0.2,  # Lower temp for more consistent JSON
+                max_tokens=800,
+                retry_count=2  # Fewer retries for faster fallback
             )
             
-            # Parse AI response
-            import json
-            analysis = json.loads(response.text.strip('```json').strip('```').strip())
+            if not response:
+                logger.warning("Empty response from Gemini, using fallback")
+                raise Exception("Empty response from Gemini")
+            
+            # Parse AI response with robust error handling
+            # Clean markdown formatting if present
+            clean_response = response.strip()
+            clean_response = re.sub(r'^```json\s*', '', clean_response)
+            clean_response = re.sub(r'```\s*$', '', clean_response)
+            clean_response = clean_response.strip()
+            
+            # Try to find JSON in response if there's extra text
+            json_match = re.search(r'\{.*\}', clean_response, re.DOTALL)
+            if json_match:
+                clean_response = json_match.group(0)
+            
+            try:
+                analysis = json.loads(clean_response)
+            except json.JSONDecodeError as je:
+                logger.error(f"JSON parsing error at position {je.pos}: {je.msg}")
+                logger.error(f"Failed JSON: {clean_response[:500]}")
+                raise
             
             return {
                 "total": len(questions),
-                "themes": analysis.get('themes', []),
-                "top_concerns": analysis.get('concerns', []),
+                "themes": analysis.get('themes', [])[:5],  # Limit themes
+                "top_concerns": analysis.get('concerns', [])[:5],  # Limit concerns
                 "quality_assessment": analysis.get('quality_assessment', 'N/A')
             }
             
         except Exception as e:
             logger.error(f"❌ Error in AI question analysis: {e}")
+            # Return simple fallback analysis
             return {
                 "total": len(questions),
-                "themes": [{"theme": "Various topics", "count": len(questions)}],
-                "top_concerns": ["Unable to analyze (AI error)"],
-                "quality_assessment": f"{len(questions)} questions asked"
+                "themes": [{"theme": "Technical Questions", "count": len(questions), "example": questions[0].get('question_text', 'N/A') if questions else 'N/A'}],
+                "top_concerns": ["Questions require manual review"],
+                "quality_assessment": f"{len(questions)} questions received during session"
             }
     
     def _analyze_pacing(self, reactions: List[Dict], alerts: List[Dict], duration: float) -> Dict:
@@ -264,23 +291,29 @@ Format as JSON:
     ) -> str:
         """Generate AI-powered overall summary"""
         try:
-            prompt = f"""Generate a concise 2-3 sentence executive summary of this presentation session:
+            prompt = f"""Summarize this presentation session in 2-3 sentences.
 
-Duration: {duration:.1f} minutes
-Total Reactions: {reaction_analysis['total']}
-Total Questions: {question_analysis['total']}
-Engagement Level: {reaction_analysis['engagement_level']}
-Pacing Assessment: {pacing_analysis['assessment']}
-Dominant Reaction: {reaction_analysis['dominant_reaction']['type'] if reaction_analysis.get('dominant_reaction') else 'None'}
+Session metrics:
+- Duration: {duration:.1f} minutes
+- Reactions: {reaction_analysis['total']}
+- Questions: {question_analysis['total']}  
+- Engagement: {reaction_analysis['engagement_level']}
+- Pacing: {pacing_analysis['assessment']}
 
-Provide an encouraging, constructive summary highlighting what went well and key areas for improvement."""
+Provide a constructive summary focusing on what went well and improvement areas."""
 
-            response = await asyncio.to_thread(
-                self.model.generate_content,
-                prompt
+            # Use gemini service
+            response = await self.gemini.generate_content(
+                prompt,
+                temperature=0.3,
+                max_tokens=300,
+                retry_count=2
             )
             
-            return response.text.strip()
+            if response:
+                return response.strip()
+            else:
+                raise Exception("Empty response")
             
         except Exception as e:
             logger.error(f"❌ Error generating AI summary: {e}")
@@ -294,36 +327,60 @@ Provide an encouraging, constructive summary highlighting what went well and key
     ) -> List[Dict]:
         """Generate actionable recommendations"""
         try:
-            prompt = f"""Based on this presentation session data, provide 5 specific, actionable recommendations for improvement:
+            prompt = f"""Provide 3-5 actionable recommendations to improve this presentation.
 
-Engagement: {reaction_analysis['engagement_level']}
-Reactions sentiment: {reaction_analysis['sentiment']}
-Code requests: {reaction_analysis.get('code_requests', 0)}
-Confusion signals: {reaction_analysis.get('confusion_signals', 0)}
-Questions: {question_analysis['total']}
-Question concerns: {', '.join(question_analysis.get('top_concerns', [])[:3])}
-Pacing: {pacing_analysis['assessment']}
-Pacing score: {pacing_analysis['pacing_score']}/100
+Session data:
+- Engagement: {reaction_analysis['engagement_level']}
+- Sentiment: {reaction_analysis['sentiment']}
+- Code requests: {reaction_analysis.get('code_requests', 0)}
+- Confusion signals: {reaction_analysis.get('confusion_signals', 0)}
+- Questions: {question_analysis['total']}
+- Pacing score: {pacing_analysis['pacing_score']}/100
 
-Provide recommendations as JSON array:
-[
-    {{
-        "category": "pacing|engagement|content|interaction",
-        "priority": "high|medium|low",
-        "recommendation": "...",
-        "rationale": "..."
-    }},
-    ...
-]"""
+IMPORTANT: Return ONLY valid JSON array, no markdown, no extra text.
 
-            response = await asyncio.to_thread(
-                self.model.generate_content,
-                prompt
+Format:
+[{{"category": "pacing", "priority": "high", "recommendation": "specific advice", "rationale": "reason"}}]"""
+
+            # Use gemini service with reduced parameters
+            response = await self.gemini.generate_content(
+                prompt,
+                temperature=0.2,
+                max_tokens=1000,
+                retry_count=2
             )
             
-            import json
-            recommendations = json.loads(response.text.strip('```json').strip('```').strip())
-            return recommendations
+            if not response:
+                logger.warning("Empty response for recommendations, using fallback")
+                raise Exception("Empty response")
+            
+            # Clean markdown formatting
+            clean_response = response.strip()
+            clean_response = re.sub(r'^```json\s*', '', clean_response)
+            clean_response = re.sub(r'```\s*$', '', clean_response)
+            clean_response = clean_response.strip()
+            
+            # Try to find JSON array in response
+            json_match = re.search(r'\[.*\]', clean_response, re.DOTALL)
+            if json_match:
+                clean_response = json_match.group(0)
+            
+            recommendations = json.loads(clean_response)
+            
+            # Validate structure
+            if not isinstance(recommendations, list):
+                raise ValueError("Response is not a list")
+            
+            # Ensure each recommendation has required fields
+            valid_recommendations = []
+            for rec in recommendations:
+                if isinstance(rec, dict) and all(k in rec for k in ['category', 'priority', 'recommendation', 'rationale']):
+                    valid_recommendations.append(rec)
+            
+            if valid_recommendations:
+                return valid_recommendations[:5]  # Limit to 5
+            else:
+                raise ValueError("No valid recommendations in response")
             
         except Exception as e:
             logger.error(f"❌ Error generating recommendations: {e}")
@@ -433,5 +490,6 @@ Provide recommendations as JSON array:
                     "recommendation": "Continue engaging with your audience",
                     "rationale": "Session completed successfully"
                 }
-            ]
+            ],
+            "error": "AI analysis unavailable - using basic summary"
         }

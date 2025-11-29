@@ -25,7 +25,7 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
     );
   }, [alerts]);
 
-  // Get sentiment trend (improving/declining)
+  // Get sentiment trend
   const sentimentTrend = useMemo(() => {
     const trendAlerts = alerts
       .filter(a => a.type === 'sentiment_trend')
@@ -37,38 +37,25 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
     return 'stable';
   }, [alerts]);
 
+  // ENHANCED: 7 sentiment categories (added "bored" for too slow)
   const sentimentConfig = {
-    excited: {
-      emoji: '🎉',
-      color: 'text-green-600',
-      bg: 'bg-green-50 dark:bg-green-900/20',
-      border: 'border-green-500',
-      label: 'Excited',
-      description: 'Audience is highly engaged and enthusiastic!'
+    overwhelmed: {
+      emoji: '🚨',
+      color: 'text-red-700',
+      bg: 'bg-red-100 dark:bg-red-900/30',
+      border: 'border-red-600',
+      label: 'Overwhelmed',
+      description: '🚨 URGENT! Audience cannot keep up - SLOW DOWN immediately!',
+      bgPulse: 'animate-pulse'
     },
-    interested: {
-      emoji: '👍',
-      color: 'text-blue-600',
-      bg: 'bg-blue-50 dark:bg-blue-900/20',
-      border: 'border-blue-500',
-      label: 'Interested',
-      description: 'Audience is engaged and attentive'
-    },
-    neutral: {
-      emoji: 'ℹ️',
-      color: 'text-gray-600',
-      bg: 'bg-gray-50 dark:bg-gray-700',
-      border: 'border-gray-400',
-      label: 'Neutral',
-      description: 'Audience sentiment is neutral'
-    },
-    confused: {
-      emoji: '🤔',
-      color: 'text-yellow-600',
-      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-      border: 'border-yellow-500',
-      label: 'Confused',
-      description: 'Some audience members need clarification'
+    bored: {
+      emoji: '😴',
+      color: 'text-orange-600',
+      bg: 'bg-orange-50 dark:bg-orange-900/20',
+      border: 'border-orange-500',
+      label: 'Bored',
+      description: '⚡ Audience wants you to SPEED UP - pace is too slow!',
+      bgPulse: ''
     },
     frustrated: {
       emoji: '😤',
@@ -76,7 +63,44 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
       bg: 'bg-red-50 dark:bg-red-900/20',
       border: 'border-red-500',
       label: 'Frustrated',
-      description: 'Audience is struggling - address concerns!'
+      description: 'Audience is struggling with content - address concerns now!',
+      bgPulse: ''
+    },
+    confused: {
+      emoji: '🤔',
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      border: 'border-yellow-500',
+      label: 'Confused',
+      description: 'Some audience members need clarification',
+      bgPulse: ''
+    },
+    neutral: {
+      emoji: 'ℹ️',
+      color: 'text-gray-600',
+      bg: 'bg-gray-50 dark:bg-gray-700',
+      border: 'border-gray-400',
+      label: 'Neutral',
+      description: 'Audience sentiment is neutral',
+      bgPulse: ''
+    },
+    interested: {
+      emoji: '👍',
+      color: 'text-blue-600',
+      bg: 'bg-blue-50 dark:bg-blue-900/20',
+      border: 'border-blue-500',
+      label: 'Interested',
+      description: 'Audience is engaged and attentive',
+      bgPulse: ''
+    },
+    excited: {
+      emoji: '🎉',
+      color: 'text-green-600',
+      bg: 'bg-green-50 dark:bg-green-900/20',
+      border: 'border-green-500',
+      label: 'Excited',
+      description: 'Audience is highly engaged and enthusiastic!',
+      bgPulse: ''
     }
   };
 
@@ -97,7 +121,7 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
   return (
     <div className="space-y-4">
       {/* Main Sentiment Display */}
-      <div className={`${config.bg} rounded-xl p-6 border-2 ${config.border} shadow-lg`}>
+      <div className={`${config.bg} ${config.bgPulse} rounded-xl p-6 border-2 ${config.border} shadow-lg`}>
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="text-5xl">{config.emoji}</span>
@@ -122,8 +146,36 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
           {config.description}
         </p>
 
-        {/* Warning for negative sentiment */}
-        {negativePercentage >= 60 && (
+        {/* SPEED UP WARNING for bored audience */}
+        {dominant === 'bored' && (
+          <div className="bg-orange-100 dark:bg-orange-900/30 border-l-4 border-orange-600 p-4 rounded mb-4">
+            <p className="text-base font-bold text-orange-900 dark:text-orange-100">
+              ⚡ Audience wants you to SPEED UP!
+            </p>
+            <p className="text-sm font-semibold text-orange-800 dark:text-orange-200 mt-1">
+              → Pick up the pace - they're ready for more<br/>
+              → Skip basic explanations, move to advanced topics<br/>
+              → Add more interactive elements or demos
+            </p>
+          </div>
+        )}
+
+        {/* CRITICAL WARNING for overwhelmed */}
+        {dominant === 'overwhelmed' && (
+          <div className="bg-red-200 dark:bg-red-900/50 border-l-4 border-red-700 p-4 rounded mb-4 animate-pulse">
+            <p className="text-base font-bold text-red-900 dark:text-red-100">
+              🚨 CRITICAL: Your pace is TOO FAST! Audience is lost!
+            </p>
+            <p className="text-sm font-semibold text-red-800 dark:text-red-200 mt-1">
+              → Stop immediately and ask "What's confusing?"<br/>
+              → Revisit the last concept more slowly<br/>
+              → Check for understanding before continuing
+            </p>
+          </div>
+        )}
+
+        {/* Warning for high negative sentiment */}
+        {negativePercentage >= 60 && dominant !== 'overwhelmed' && (
           <div className="bg-red-100 dark:bg-red-900/30 border-l-4 border-red-500 p-3 rounded">
             <p className="text-sm font-semibold text-red-800 dark:text-red-200">
               ⚠️ {negativePercentage.toFixed(0)}% of questions show confusion or frustration
@@ -202,19 +254,59 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
           What to Do
         </h4>
         <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+          {dominant === 'bored' && (
+            <>
+              <li className="flex items-start gap-2">
+                <span className="text-orange-600">⚡</span>
+                <span className="font-bold">Speed up! Audience is ready for more.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-orange-600">•</span>
+                <span>Skip introductory material, dive into advanced topics</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-orange-600">•</span>
+                <span>Add interactive demos or live coding</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-orange-600">•</span>
+                <span>Move through slides/concepts faster</span>
+              </li>
+            </>
+          )}
+          {dominant === 'overwhelmed' && (
+            <>
+              <li className="flex items-start gap-2">
+                <span className="text-red-700">🚨</span>
+                <span className="font-bold">STOP! Take a breath. Your audience is drowning.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-red-700">•</span>
+                <span>Ask: "Let's pause. What's the most confusing part?"</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-red-700">•</span>
+                <span>Revisit the last 2-3 concepts at HALF your current speed</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-red-700">•</span>
+                <span>Use concrete examples and live demos</span>
+              </li>
+            </>
+          )}
           {dominant === 'frustrated' && (
             <>
               <li className="flex items-start gap-2">
                 <span className="text-red-500">•</span>
-                <span>Pause and ask: "What's confusing? Let me clarify."</span>
+                <span>Pause and ask: "What's causing frustration? Let me help."</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500">•</span>
-                <span>Slow down and revisit recent concepts</span>
+                <span>Address technical issues or clarify confusing concepts</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500">•</span>
-                <span>Provide concrete examples or demos</span>
+                <span>Provide working examples and troubleshooting tips</span>
               </li>
             </>
           )}
@@ -227,6 +319,10 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
               <li className="flex items-start gap-2">
                 <span className="text-yellow-600">•</span>
                 <span>Provide a quick recap of key points</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-yellow-600">•</span>
+                <span>Use analogies or visual aids to clarify</span>
               </li>
             </>
           )}
@@ -252,13 +348,23 @@ export default function SentimentMonitor({ alerts }: SentimentMonitorProps) {
                 <span className="text-green-500">•</span>
                 <span>Now is a great time for interactive demos</span>
               </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-500">•</span>
+                <span>You can pick up the pace slightly if desired</span>
+              </li>
             </>
           )}
           {dominant === 'neutral' && (
-            <li className="flex items-start gap-2">
-              <span className="text-gray-500">•</span>
-              <span>Consider adding interactive elements to boost engagement</span>
-            </li>
+            <>
+              <li className="flex items-start gap-2">
+                <span className="text-gray-500">•</span>
+                <span>Add interactive elements to boost engagement</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-gray-500">•</span>
+                <span>Ask questions to check understanding</span>
+              </li>
+            </>
           )}
         </ul>
       </div>
