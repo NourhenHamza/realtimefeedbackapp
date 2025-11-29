@@ -1,5 +1,5 @@
 """
-Backend with PostgreSQL Database and AI Agents
+Backend with PostgreSQL Database and AI Agents - WITH ALERTS PERSISTENCE
 Install: pip install fastapi uvicorn sqlalchemy psycopg2-binary asyncpg google-generativeai python-dotenv
 """
 
@@ -7,20 +7,20 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Set
-from datetime import datetime, timezone
+from datetime import datetime, timezone,timedelta 
 from enum import Enum
-from datetime import datetime, timezone
 import asyncio
 import logging
 import json
 
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, Text, Enum as SQLEnum
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Text, Enum as SQLEnum, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
 # Import AI Agent components
 from agent_manager import get_agent_manager, remove_agent_manager
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -83,6 +83,20 @@ class QuestionDB(Base):
     user_id = Column(String(200))
     user_name = Column(String(100))
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+# NEW: AI Alerts Table
+class AIAlertDB(Base):
+    __tablename__ = "ai_alerts"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id = Column(String(100), index=True)
+    alert_type = Column(String(50))  # 'pacing', 'sentiment', 'code_demand', 'qa_grouping'
+    severity = Column(String(20))    # 'info', 'warning', 'critical', 'success'
+    title = Column(String(200))
+    message = Column(Text)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    data = Column(JSON, nullable=True)  # Store additional alert data as JSON
 
 
 Base.metadata.create_all(bind=engine)
@@ -257,12 +271,36 @@ class WebSocketConnectionManager:
 
 
 # ============================================================================
+# ALERT PERSISTENCE HELPER
+# ============================================================================
+
+def save_alert_to_db(db: Session, session_id: str, alert: Dict):
+    """Save an AI alert to the database"""
+    try:
+        new_alert = AIAlertDB(
+            session_id=session_id,
+            alert_type=alert.get('type', 'unknown'),
+            severity=alert.get('severity', 'info'),
+            title=alert.get('title', ''),
+            message=alert.get('message', ''),
+            timestamp=datetime.fromisoformat(alert['timestamp']) if isinstance(alert.get('timestamp'), str) else alert.get('timestamp', datetime.now(timezone.utc)),
+            data=alert.get('data', {})  # Store additional fields like ai_analysis, themes, etc.
+        )
+        db.add(new_alert)
+        db.commit()
+        logger.info(f"💾 Alert saved to DB: {alert['title']}")
+    except Exception as e:
+        logger.error(f"❌ Error saving alert to DB: {e}")
+        db.rollback()
+
+
+# ============================================================================
 # FASTAPI APP
 # ============================================================================
 
 app = FastAPI(
     title="Presentation Feedback API with AI Agents",
-    version="5.0.0"
+    version="5.1.0"
 )
 
 app.add_middleware(
@@ -303,7 +341,7 @@ async def create_session(request: SessionCreateRequest, db: Session = Depends(ge
         db.commit()
         
         # Initialize AI agents for this session
-        agent_manager = get_agent_manager(request.session_id, ws_manager)
+        agent_manager = get_agent_manager(request.session_id, ws_manager, db)
         await agent_manager.start()
         
         logger.info(f"✅ Session created with AI agents: {request.session_id}")
@@ -319,29 +357,36 @@ async def create_session(request: SessionCreateRequest, db: Session = Depends(ge
 
 @app.delete("/api/session/{session_id}", tags=["Session"])
 async def end_session(session_id: str, db: Session = Depends(get_db)):
-    """End a session and clean up"""
+    """End a session and generate comprehensive summary"""
     try:
+        # Generate session summary BEFORE cleanup
+        logger.info(f"📊 Generating summary for session {session_id}...")
+        agent_manager = get_agent_manager(session_id, ws_manager, db)
+        summary = await agent_manager.generate_session_summary()
+        
         # Stop AI agents
         await remove_agent_manager(session_id)
         
+        # Disconnect all websockets
         await ws_manager.disconnect_all_from_session(session_id)
         
+        # Mark session as completed (don't delete immediately)
         session = db.query(SessionDB).filter(SessionDB.session_id == session_id).first()
         if session:
-            db.delete(session)
+            session.status = "completed"
         
-        db.query(ReactionDB).filter(ReactionDB.session_id == session_id).delete()
-        db.query(QuestionDB).filter(QuestionDB.session_id == session_id).delete()
         db.commit()
         
-        logger.info(f"❌ Session ended: {session_id}")
+        logger.info(f"✅ Session ended: {session_id}")
+        
         return {
             "status": "ended",
-            "message": "Session ended and data removed",
-            "session_id": session_id
+            "message": "Session ended successfully",
+            "session_id": session_id,
+            "summary": summary  # ← Return summary to frontend
         }
     except Exception as e:
-        logger.error(f"Error ending session: {e}")
+        logger.error(f"Error ending session: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -355,7 +400,7 @@ async def check_session_status(session_id: str, db: Session = Depends(get_db)):
     agent_status = None
     if is_active:
         try:
-            agent_manager = get_agent_manager(session_id, ws_manager)
+            agent_manager = get_agent_manager(session_id, ws_manager, db)
             agent_status = agent_manager.get_status()
         except:
             pass
@@ -432,30 +477,102 @@ async def get_questions(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# NEW: Get AI Alerts endpoint
+@app.get("/api/presenter/alerts", tags=["Presenter"])
+async def get_alerts(
+    session_id: str = Query(...),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """Get AI alerts for a session"""
+    try:
+        alerts = db.query(AIAlertDB)\
+            .filter(AIAlertDB.session_id == session_id)\
+            .order_by(AIAlertDB.timestamp.desc())\
+            .limit(limit)\
+            .all()
+        
+        return {
+            "alerts": [
+                {
+                    "type": a.alert_type,
+                    "severity": a.severity,
+                    "title": a.title,
+                    "message": a.message,
+                    "timestamp": a.timestamp.isoformat(),
+                    **a.data  # Spread the JSON data
+                }
+                for a in alerts
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching alerts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # WEBSOCKET ENDPOINT
 # ============================================================================
-
 @app.websocket("/ws/presenter/{session_id}")
 async def websocket_presenter_endpoint(websocket: WebSocket, session_id: str):
-    """WebSocket for presenters"""
+    """WebSocket for presenters - handles reconnections gracefully"""
     db = SessionLocal()
+    agent_manager = None
     
     try:
+        # Check if session exists in DB
         session = db.query(SessionDB).filter(SessionDB.session_id == session_id).first()
         if not session:
+            # Create new session
             new_session = SessionDB(session_id=session_id, status="active")
             db.add(new_session)
             db.commit()
-            
-            # Start AI agents
-            agent_manager = get_agent_manager(session_id, ws_manager)
-            await agent_manager.start()
+            logger.info(f"🆕 New session created: {session_id}")
         
+        # Get or create agent manager (don't recreate if already exists)
+        agent_manager = get_agent_manager(session_id, ws_manager, db)
+        
+        # Start agents only if not already running
+        if not agent_manager.running:
+            await agent_manager.start()
+            logger.info(f"🚀 Started agents for session: {session_id}")
+        else:
+            logger.info(f"♻️ Reusing existing agents for session: {session_id}")
+        
+        # Connect WebSocket
         await ws_manager.connect(websocket, session_id)
         
-        reactions = db.query(ReactionDB).filter(ReactionDB.session_id == session_id).order_by(ReactionDB.timestamp.desc()).limit(20).all()
-        questions = db.query(QuestionDB).filter(QuestionDB.session_id == session_id).order_by(QuestionDB.timestamp.desc()).all()
+        # ============================================================
+        # SEND INITIAL DATA - Load recent data by TIME, not by count
+        # ============================================================
+        from datetime import timedelta
+        
+        # Load reactions from last 10 minutes (for heatmap and code demand)
+        ten_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+        reactions = db.query(ReactionDB)\
+            .filter(
+                ReactionDB.session_id == session_id,
+                ReactionDB.timestamp >= ten_minutes_ago
+            )\
+            .order_by(ReactionDB.timestamp.desc())\
+            .all()
+        
+        # Load all questions (they're shown in a list, not time-filtered)
+        questions = db.query(QuestionDB)\
+            .filter(QuestionDB.session_id == session_id)\
+            .order_by(QuestionDB.timestamp.desc())\
+            .all()
+        
+        # Load alerts from last hour (enough for context)
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+        alerts = db.query(AIAlertDB)\
+            .filter(
+                AIAlertDB.session_id == session_id,
+                AIAlertDB.timestamp >= one_hour_ago
+            )\
+            .order_by(AIAlertDB.timestamp.desc())\
+            .limit(50)\
+            .all()
         
         await websocket.send_json({
             "type": "initial_data",
@@ -473,39 +590,86 @@ async def websocket_presenter_endpoint(websocket: WebSocket, session_id: str):
                         "user_name": q.user_name,
                         "timestamp": q.timestamp.isoformat()
                     } for q in questions
+                ],
+                "alerts": [
+                    {
+                        "type": a.alert_type,
+                        "severity": a.severity,
+                        "title": a.title,
+                        "message": a.message,
+                        "timestamp": a.timestamp.isoformat(),
+                        **a.data  # Include all additional data
+                    } for a in alerts
                 ]
             },
             "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
-        is_last_presenter = False
+        logger.info(f"📤 Sent initial data: {len(reactions)} reactions (last 10min), {len(questions)} questions, {len(alerts)} alerts (last hour)")
         
+        # Keep connection alive and listen for messages
         while True:
             try:
-                data = await websocket.receive_text()
+                # Wait for message with 30 second timeout
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
                 message = json.loads(data)
                 
                 if message.get("type") == "end_session":
-                    is_last_presenter = True
+                    logger.info(f"🛑 End session requested for: {session_id}")
                     break
                     
             except asyncio.TimeoutError:
-                await websocket.send_json({"type": "keepalive"})
+                # Send keepalive ping
+                try:
+                    await websocket.send_json({"type": "keepalive"})
+                except:
+                    break
     
     except WebSocketDisconnect:
-        pass
+        logger.info(f"🔌 WebSocket disconnected for session: {session_id}")
+    
+    except Exception as e:
+        logger.error(f"❌ WebSocket error: {e}", exc_info=True)
+    
     finally:
+        # Disconnect this WebSocket
         await ws_manager.disconnect(websocket, session_id)
         
-        if is_last_presenter or ws_manager.get_connection_count_for_session(session_id) == 0:
-            await remove_agent_manager(session_id)
-            session = db.query(SessionDB).filter(SessionDB.session_id == session_id).first()
-            if session:
-                db.delete(session)
-            db.query(ReactionDB).filter(ReactionDB.session_id == session_id).delete()
-            db.query(QuestionDB).filter(QuestionDB.session_id == session_id).delete()
-            db.commit()
-            await ws_manager.disconnect_all_from_session(session_id)
+        # Check if there are any other connections for this session
+        remaining_connections = ws_manager.get_connection_count_for_session(session_id)
+        
+        logger.info(f"📊 Remaining connections for {session_id}: {remaining_connections}")
+        
+        # Only clean up if NO connections remain
+        if remaining_connections == 0:
+            # Wait a bit to see if it's just a refresh (reconnection coming)
+            logger.info(f"⏳ Waiting 3 seconds to detect reconnection...")
+            await asyncio.sleep(3)
+            
+            # Check again after waiting
+            remaining_connections = ws_manager.get_connection_count_for_session(session_id)
+            
+            if remaining_connections == 0:
+                logger.info(f"🧹 No reconnection detected, cleaning up session: {session_id}")
+                
+                # Stop agents
+                await remove_agent_manager(session_id)
+                
+                # Delete session and data from DB
+                session = db.query(SessionDB).filter(SessionDB.session_id == session_id).first()
+                if session:
+                    db.delete(session)
+                
+                db.query(ReactionDB).filter(ReactionDB.session_id == session_id).delete()
+                db.query(QuestionDB).filter(QuestionDB.session_id == session_id).delete()
+                db.query(AIAlertDB).filter(AIAlertDB.session_id == session_id).delete()
+                db.commit()
+                
+                logger.info(f"✅ Session cleaned up: {session_id}")
+            else:
+                logger.info(f"♻️ Reconnection detected ({remaining_connections} connections), keeping session: {session_id}")
+        else:
+            logger.info(f"👥 Other connections active ({remaining_connections}), keeping session: {session_id}")
         
         db.close()
 
@@ -530,7 +694,7 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
             session_id=reaction.session_id,
             user_id=reaction.user_id,
             user_name=reaction.user_name,
-            timestamp=reaction_timestamp  # Use our timestamp
+            timestamp=reaction_timestamp
         )
         db.add(new_reaction)
         
@@ -538,11 +702,8 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
         session.last_activity = datetime.now(timezone.utc)
         db.commit()
         
-        # Log the timestamp we're sending to agents
-        logger.info(f"📝 Reaction timestamp: {reaction_timestamp} (tzinfo: {reaction_timestamp.tzinfo})")
-        
-        # Notify AI agents with OUR timestamp
-        agent_manager = get_agent_manager(reaction.session_id, ws_manager)
+        # Notify AI agents
+        agent_manager = get_agent_manager(reaction.session_id, ws_manager, db)
         await agent_manager.on_reaction(reaction.reaction_type.value, reaction_timestamp)
         
         await ws_manager.broadcast_to_session(reaction.session_id, {
@@ -583,11 +744,10 @@ async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)
         session.last_activity = datetime.now(timezone.utc)
         db.commit()
         
-        # Notify AI agents - ensure user_name is not None
-        agent_manager = get_agent_manager(question.session_id, ws_manager)
+        # Notify AI agents
+        agent_manager = get_agent_manager(question.session_id, ws_manager, db)
         user_name = question.user_name if question.user_name else "Anonymous"
         
-        # Pass the timestamp we just created
         await agent_manager.on_question(
             question.question_text, 
             user_name,
@@ -614,7 +774,7 @@ async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)
 
 @app.get("/", tags=["Root"])
 async def root():
-    return {"service": "Feedback API with AI Agents", "version": "5.0.0"}
+    return {"service": "Feedback API with AI Agents", "version": "5.1.0"}
 
 
 if __name__ == "__main__":

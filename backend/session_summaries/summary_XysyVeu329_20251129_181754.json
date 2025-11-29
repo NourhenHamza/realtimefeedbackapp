@@ -1,0 +1,65 @@
+{
+  "session_id": "XysyVeu329",
+  "timestamp": "2025-11-29T18:17:54.654036+00:00",
+  "session_duration_minutes": 661.2,
+  "overall_summary": "Session lasted 661.2 minutes with 11 reactions and 1 questions. Moderate engagement.",
+  "reaction_analysis": {
+    "total": 11,
+    "breakdown": {
+      "SPEED_UP": 2,
+      "SHOW_CODE": 8,
+      "SLOW_DOWN": 1
+    },
+    "dominant_reaction": {
+      "type": "SHOW_CODE",
+      "count": 8,
+      "percentage": 72.7
+    },
+    "engagement_level": "Moderate engagement",
+    "sentiment": "positive",
+    "code_requests": 8,
+    "confusion_signals": 1
+  },
+  "question_analysis": {
+    "total": 1,
+    "themes": [
+      {
+        "theme": "Various topics",
+        "count": 1
+      }
+    ],
+    "top_concerns": [
+      "Unable to analyze (AI error)"
+    ],
+    "quality_assessment": "1 questions asked"
+  },
+  "pacing_analysis": {
+    "assessment": "Good pace - audience kept up well",
+    "total_pacing_alerts": 0,
+    "critical_moments": 0,
+    "speed_up_requests": 2,
+    "slow_down_requests": 1,
+    "pacing_score": 90
+  },
+  "recommendations": [
+    {
+      "category": "content",
+      "priority": "high",
+      "recommendation": "Include more live coding demonstrations",
+      "rationale": "Audience requested code examples 8 times"
+    },
+    {
+      "category": "engagement",
+      "priority": "medium",
+      "recommendation": "Increase audience interaction and ask more questions",
+      "rationale": "Low overall engagement during the session"
+    }
+  ],
+  "statistics": {
+    "total_reactions": 11,
+    "total_questions": 1,
+    "total_alerts": 2,
+    "reactions_per_minute": 0.02,
+    "questions_per_minute": 0.0
+  }
+}

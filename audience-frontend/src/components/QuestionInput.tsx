@@ -2,7 +2,7 @@
 
 import { api } from '@/lib/api';
 import { getUserId } from '@/lib/userUtils';
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useRef, useState } from 'react';
 
 interface QuestionInputProps {
   sessionId: string;
@@ -16,6 +16,11 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Track last submission to prevent duplicates
+  const lastSubmitTime = useRef<number>(0);
+  const lastSubmittedQuestion = useRef<string>('');
+  const isSubmittingRef = useRef<boolean>(false);
+
   const remainingChars = MAX_CHARACTERS - question.length;
   const isOverLimit = remainingChars < 0;
 
@@ -27,7 +32,9 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!question.trim()) {
+    const trimmedQuestion = question.trim();
+
+    if (!trimmedQuestion) {
       setMessage({ type: 'error', text: 'Please enter a question' });
       return;
     }
@@ -37,28 +44,60 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
       return;
     }
 
+    // Check if already submitting
+    if (isSubmittingRef.current) {
+      console.log('⏳ Already submitting a question, ignoring duplicate submission');
+      return;
+    }
+
+    // Prevent duplicate submissions of the same question within 3 seconds
+    const now = Date.now();
+    const timeSinceLastSubmit = now - lastSubmitTime.current;
+    const isSameQuestion = trimmedQuestion === lastSubmittedQuestion.current;
+    
+    if (isSameQuestion && timeSinceLastSubmit < 3000) {
+      console.log(`⏳ Duplicate question detected (${timeSinceLastSubmit}ms ago), skipping...`);
+      setMessage({ type: 'error', text: 'Question already submitted!' });
+      setTimeout(() => setMessage(null), 2000);
+      return;
+    }
+
+    // Mark as submitting
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setMessage(null);
+    lastSubmitTime.current = now;
+    lastSubmittedQuestion.current = trimmedQuestion;
 
     try {
-      // Get unique user ID
       const userId = getUserId();
       
+      console.log(`📤 Sending question: "${trimmedQuestion.substring(0, 50)}..."`);
+      
       await api.submitQuestion({
-        question_text: question.trim(),
+        question_text: trimmedQuestion,
         session_id: sessionId,
         user_id: userId,
-        user_name: userName, // Include user name
+        user_name: userName,
       });
 
+      console.log('✅ Question sent successfully');
       setMessage({ type: 'success', text: 'Question submitted successfully!' });
       setQuestion('');
+      
+      // Clear the last submitted question after 5 seconds (allow asking similar questions later)
+      setTimeout(() => {
+        lastSubmittedQuestion.current = '';
+      }, 5000);
+
     } catch (error) {
+      console.error('❌ Error submitting question:', error);
       setMessage({
         type: 'error',
         text: error instanceof Error ? error.message : 'Failed to submit question',
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
       setTimeout(() => setMessage(null), 5000);
     }
@@ -87,13 +126,14 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
               bg-white dark:bg-gray-800
               text-gray-900 dark:text-gray-100
               placeholder-gray-400 dark:placeholder-gray-500
+              transition-colors
               ${isOverLimit ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
             `}
           />
           <div
             className={`
               absolute bottom-3 right-3 text-sm font-medium
-              ${isOverLimit ? 'text-red-600' : remainingChars < 50 ? 'text-yellow-600' : 'text-gray-500'}
+              ${isOverLimit ? 'text-red-600 dark:text-red-400' : remainingChars < 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}
             `}
           >
             {remainingChars} chars left
@@ -138,7 +178,7 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
               Submitting...
             </span>
           ) : (
-            'Submit Question'
+            '📤 Submit Question'
           )}
         </button>
       </form>
@@ -146,13 +186,21 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
       {message && (
         <div
           className={`
-            mt-4 p-4 rounded-lg text-center font-medium
-            ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+            mt-4 p-4 rounded-lg text-center font-medium transition-all
+            ${message.type === 'success' 
+              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}
           `}
         >
           {message.text}
         </div>
       )}
+
+      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        <p className="text-sm text-blue-800 dark:text-blue-200">
+          💡 <strong>Tip:</strong> Be specific and concise for the best response
+        </p>
+      </div>
     </div>
   );
 }

@@ -80,10 +80,28 @@ SENTIMENT_AGENT_CONFIG = {
     "negative_sentiment_threshold": 0.6,  # 60% negative
 }
 
+# Session Summary Agent Configuration
+SESSION_SUMMARY_CONFIG = {
+    # Enable/disable summary generation
+    "enabled": True,
+    
+    # Save summaries to JSON files
+    "save_to_file": True,
+    "summary_directory": "./session_summaries/",
+    
+    # Include in summary
+    "include_detailed_analysis": True,
+    "include_recommendations": True,
+    "max_recommendations": 5,
+    
+    # Top themes to show
+    "max_themes": 5,
+}
+
 # Gemini API Configuration
 GEMINI_CONFIG = {
     # Model to use (gemini-2.5-flash is available on free tier)
-    "model": "gemini-2.5-flash",
+    "model": "gemini-2.0-flash-exp",
     
     # Generation parameters
     "temperature": 0.7,

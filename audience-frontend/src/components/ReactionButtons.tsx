@@ -2,7 +2,7 @@
 
 import { api, ReactionType } from '@/lib/api';
 import { getUserId } from '@/lib/userUtils';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 interface ReactionButton {
   type: ReactionType;
@@ -45,7 +45,7 @@ const reactions: ReactionButton[] = [
 
 interface ReactionButtonsProps {
   sessionId: string;
-  userName: string;  // <-- ADDED userName prop
+  userName: string;
 }
 
 export default function ReactionButtons({ sessionId, userName }: ReactionButtonsProps) {
@@ -59,37 +59,80 @@ export default function ReactionButtons({ sessionId, userName }: ReactionButtons
     IM_LOST: false,
   });
 
+  // Track last submission time per reaction type to prevent duplicates
+  const lastSubmitTime = useRef<Record<ReactionType, number>>({
+    SPEED_UP: 0,
+    SLOW_DOWN: 0,
+    SHOW_CODE: 0,
+    IM_LOST: 0,
+  });
+
+  // Track if a submission is in progress for each type
+  const submittingType = useRef<Record<ReactionType, boolean>>({
+    SPEED_UP: false,
+    SLOW_DOWN: false,
+    SHOW_CODE: false,
+    IM_LOST: false,
+  });
+
   const handleReaction = async (reactionType: ReactionType) => {
-    if (isSubmitting || cooldowns[reactionType]) return;
+    // Check if already submitting this specific type
+    if (submittingType.current[reactionType]) {
+      console.log(`⏳ Already submitting ${reactionType}, ignoring duplicate click`);
+      return;
+    }
+
+    // Check cooldown for this specific type
+    if (cooldowns[reactionType]) {
+      console.log(`⏳ ${reactionType} is in cooldown`);
+      return;
+    }
+
+    // Additional time-based check (prevent duplicates within 800ms)
+    const now = Date.now();
+    const timeSinceLastSubmit = now - lastSubmitTime.current[reactionType];
+    if (timeSinceLastSubmit < 800) {
+      console.log(`⏳ Debouncing ${reactionType} - too soon (${timeSinceLastSubmit}ms)`);
+      return;
+    }
+
+    // Mark as submitting
+    submittingType.current[reactionType] = true;
+    lastSubmitTime.current[reactionType] = now;
 
     setPressedButton(reactionType);
     setIsSubmitting(true);
     setMessage(null);
 
     try {
-      // Get unique user ID
       const userId = getUserId();
       
+      console.log(`📤 Sending reaction: ${reactionType}`);
       await api.submitReaction({
         reaction_type: reactionType,
         session_id: sessionId,
         user_id: userId,
-        user_name: userName,  // <-- ADDED user_name to API call
+        user_name: userName,
       });
 
+      console.log(`✅ Reaction sent successfully: ${reactionType}`);
       setMessage({ type: 'success', text: 'Reaction sent!' });
 
-      // Set cooldown for this specific button
+      // Set cooldown for this specific button (1.5 seconds)
       setCooldowns((prev) => ({ ...prev, [reactionType]: true }));
       setTimeout(() => {
         setCooldowns((prev) => ({ ...prev, [reactionType]: false }));
-      }, 1000);
+      }, 1500);
+
     } catch (error) {
+      console.error(`❌ Error sending reaction ${reactionType}:`, error);
       setMessage({
         type: 'error',
         text: error instanceof Error ? error.message : 'Failed to send reaction',
       });
     } finally {
+      // Mark as not submitting
+      submittingType.current[reactionType] = false;
       setIsSubmitting(false);
       setTimeout(() => setPressedButton(null), 300);
       setTimeout(() => setMessage(null), 3000);
@@ -107,7 +150,7 @@ export default function ReactionButtons({ sessionId, userName }: ReactionButtons
           <button
             key={reaction.type}
             onClick={() => handleReaction(reaction.type)}
-            disabled={isSubmitting || cooldowns[reaction.type]}
+            disabled={cooldowns[reaction.type] || submittingType.current[reaction.type]}
             className={`
               relative overflow-hidden
               ${reaction.color} ${reaction.hoverColor}
@@ -134,7 +177,7 @@ export default function ReactionButtons({ sessionId, userName }: ReactionButtons
 
             {cooldowns[reaction.type] && (
               <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center rounded-xl">
-                <span className="text-white text-sm font-medium">Wait...</span>
+                <span className="text-white text-sm font-medium">Ready in 1s...</span>
               </div>
             )}
           </button>
@@ -144,13 +187,19 @@ export default function ReactionButtons({ sessionId, userName }: ReactionButtons
       {message && (
         <div
           className={`
-            p-4 rounded-lg text-center font-medium
-            ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+            p-4 rounded-lg text-center font-medium transition-all
+            ${message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}
           `}
         >
           {message.text}
         </div>
       )}
+
+      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+          💡 Your reactions help the presenter adjust in real-time
+        </p>
+      </div>
     </div>
   );
 }

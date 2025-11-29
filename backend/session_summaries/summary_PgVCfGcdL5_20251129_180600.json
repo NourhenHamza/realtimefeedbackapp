@@ -1,0 +1,20 @@
+{
+  "session_id": "PgVCfGcdL5",
+  "timestamp": "2025-11-29T18:06:00.620597+00:00",
+  "session_duration_minutes": 661.1,
+  "overall_summary": "Session lasted 661.1 minutes with 9 reactions and 1 questions.",
+  "statistics": {
+    "total_reactions": 9,
+    "total_questions": 1,
+    "reactions_per_minute": 0.01,
+    "questions_per_minute": 0.0
+  },
+  "recommendations": [
+    {
+      "category": "general",
+      "priority": "low",
+      "recommendation": "Continue engaging with your audience",
+      "rationale": "Session completed successfully"
+    }
+  ]
+}
