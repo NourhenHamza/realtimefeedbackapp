@@ -33,7 +33,7 @@ class AgentManager:
         self.running = False
         self.tasks = []
         
-        logger.info(f"Agent Manager initialized for session {session_id} with 4 agents")
+        logger.info(f"✅ Agent Manager initialized for session {session_id} with 4 agents")
     
     async def start(self):
         """Start all background agent tasks"""
@@ -57,12 +57,12 @@ class AgentManager:
             asyncio.create_task(self._periodic_code_insights())
         )
         
-        # Start periodic sentiment analysis (every 60 seconds) - Sentiment Agent
+        # Start periodic sentiment analysis (every 30 seconds) - Sentiment Agent
         self.tasks.append(
             asyncio.create_task(self._periodic_sentiment_analysis())
         )
         
-        logger.info(f"Agent Manager started for session {self.session_id} - 4 background tasks running")
+        logger.info(f"🚀 Agent Manager started for session {self.session_id} - 4 background tasks running")
     
     async def stop(self):
         """Stop all background agent tasks"""
@@ -74,7 +74,7 @@ class AgentManager:
         await asyncio.gather(*self.tasks, return_exceptions=True)
         self.tasks.clear()
         
-        logger.info(f"Agent Manager stopped for session {self.session_id}")
+        logger.info(f"⛔ Agent Manager stopped for session {self.session_id}")
     
     async def on_reaction(self, reaction_type: str, timestamp: datetime):
         """
@@ -110,10 +110,14 @@ class AgentManager:
             user_name: Name of the person asking
             timestamp: When the question was asked
         """
+        logger.info(f"📥 Question: '{question_text[:40]}...' from {user_name}")
+        
         # Add to Q&A grouper
         self.qa_grouper.add_question(question_text, user_name, timestamp)
         
         # Add to sentiment agent for emotional analysis
+        # DON'T trigger immediate analysis - let the periodic task handle it
+        # This prevents rate limiting
         self.sentiment_agent.add_question(question_text, user_name, timestamp)
         
         # Try to group if conditions are met
@@ -130,13 +134,14 @@ class AgentManager:
                 if not self.running:
                     break
                 
+                logger.debug("🔄 Periodic AI insights check")
                 insights = await self.pacing_agent.generate_ai_insights()
                 await self._send_alert(insights)
             
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic AI insights: {e}")
+                logger.error(f"❌ Error in periodic AI insights: {e}", exc_info=True)
     
     async def _periodic_question_grouping(self):
         """Periodically check if questions should be grouped"""
@@ -150,6 +155,7 @@ class AgentManager:
                 if not self.running:
                     break
                 
+                logger.debug("🔄 Periodic question grouping check")
                 grouped_alert = await self.qa_grouper.group_questions()
                 if grouped_alert:
                     await self._send_alert(grouped_alert)
@@ -157,7 +163,7 @@ class AgentManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic question grouping: {e}")
+                logger.error(f"❌ Error in periodic question grouping: {e}", exc_info=True)
     
     async def _periodic_code_insights(self):
         """Periodically generate insights about code demand"""
@@ -171,6 +177,7 @@ class AgentManager:
                 if not self.running:
                     break
                 
+                logger.debug("🔄 Periodic code insights check")
                 insights = await self.code_demand_agent.generate_periodic_insights()
                 if insights:
                     await self._send_alert(insights)
@@ -178,12 +185,14 @@ class AgentManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic code insights: {e}")
+                logger.error(f"❌ Error in periodic code insights: {e}", exc_info=True)
     
     async def _periodic_sentiment_analysis(self):
         """Periodically analyze question sentiment"""
         from config import SENTIMENT_AGENT_CONFIG
         interval = SENTIMENT_AGENT_CONFIG['analysis_interval_seconds']
+        
+        logger.info(f"🔄 Starting sentiment analysis loop (every {interval}s)")
         
         while self.running:
             try:
@@ -192,20 +201,23 @@ class AgentManager:
                 if not self.running:
                     break
                 
+                logger.debug(f"🔄 Periodic sentiment analysis check")
+                
                 # Analyze pending questions
                 sentiment_alert = await self.sentiment_agent.analyze_pending_questions()
                 if sentiment_alert:
                     await self._send_alert(sentiment_alert)
                 
-                # Check for sentiment trends
-                trend_alert = await self.sentiment_agent.generate_trend_alert()
-                if trend_alert:
-                    await self._send_alert(trend_alert)
+                # Check for sentiment trends (only if we have data)
+                if len(self.sentiment_agent.sentiment_timeline) >= 2:
+                    trend_alert = await self.sentiment_agent.generate_trend_alert()
+                    if trend_alert:
+                        await self._send_alert(trend_alert)
             
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic sentiment analysis: {e}")
+                logger.error(f"❌ Error in periodic sentiment analysis: {e}", exc_info=True)
     
     async def _send_alert(self, alert: Dict):
         """
@@ -222,9 +234,9 @@ class AgentManager:
                     "data": alert
                 }
             )
-            logger.info(f"Alert sent: {alert['type']} - {alert['title']}")
+            logger.info(f"📢 Alert: {alert['title']}")
         except Exception as e:
-            logger.error(f"Error sending alert: {e}")
+            logger.error(f"❌ Error sending alert: {e}")
     
     def get_status(self) -> Dict:
         """Get current status of all agents"""
@@ -260,4 +272,4 @@ async def remove_agent_manager(session_id: str):
     if session_id in _agent_managers:
         await _agent_managers[session_id].stop()
         del _agent_managers[session_id]
-        logger.info(f"Agent Manager removed for session {session_id}")
+        logger.info(f"🗑️ Agent Manager removed for session {session_id}")

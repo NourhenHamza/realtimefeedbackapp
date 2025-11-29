@@ -1,5 +1,5 @@
 """
-Configuration for AI Agents
+Configuration for AI Agents - Optimized to avoid rate limits
 """
 
 # Pacing Agent Configuration
@@ -26,8 +26,8 @@ QA_GROUPER_CONFIG = {
     # Minimum questions before attempting to group
     "min_questions_for_grouping": 3,
     
-    # How often to check for new questions to group (increased to reduce API calls)
-    "grouping_interval_seconds": 90,  # 1.5 minutes to reduce rate limit hits
+    # How often to check for new questions to group
+    "grouping_interval_seconds": 120,  # Every 2 minutes to avoid rate limits
     
     # Maximum number of themes to identify
     "max_themes": 5,
@@ -53,16 +53,16 @@ CODE_DEMAND_AGENT_CONFIG = {
     "alert_cooldown_seconds": 45,
     
     # AI analysis interval
-    "ai_analysis_interval_seconds": 60,
+    "ai_analysis_interval_seconds": 90,  # Every 90 seconds to reduce API calls
 }
 
 # Sentiment Agent Configuration
 SENTIMENT_AGENT_CONFIG = {
-    # Minimum questions to analyze
-    "min_questions_for_analysis": 2,
+    # Minimum questions to analyze - keep at 1 but analysis is rate-limited
+    "min_questions_for_analysis": 2,  # Back to 2 to batch questions
     
-    # Analysis interval
-    "analysis_interval_seconds": 60,  # Every minute
+    # Analysis interval - INCREASED to avoid rate limits
+    "analysis_interval_seconds": 30,  # Check every 30 seconds, but rate limit enforced
     
     # Sentiment categories
     "sentiment_categories": [
