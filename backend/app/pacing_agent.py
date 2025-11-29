@@ -30,7 +30,7 @@ class PacingAgent:
         # Configuration
         self.config = PACING_AGENT_CONFIG
         
-        logger.info(f"Pacing Agent initialized for session {session_id}")
+        logger.info(f"✅ Pacing Agent initialized for session {session_id}")
     
     def _ensure_timezone_aware(self, dt: datetime) -> datetime:
         """
@@ -58,6 +58,7 @@ class PacingAgent:
         # Ensure timestamp is timezone-aware
         timestamp = self._ensure_timezone_aware(timestamp)
         
+        # Add to buffer FIRST
         self.reaction_buffer.append({
             'type': reaction_type,
             'timestamp': timestamp
@@ -65,20 +66,31 @@ class PacingAgent:
         
         # Keep only reactions from last 10 minutes
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+        before_cleanup = len(self.reaction_buffer)
+        
         self.reaction_buffer = [
             r for r in self.reaction_buffer 
             if r['timestamp'] > cutoff
         ]
         
-        logger.debug(f"Reaction added: {reaction_type}. Buffer size: {len(self.reaction_buffer)}")
+        after_cleanup = len(self.reaction_buffer)
+        
+        logger.info(f"✅ Reaction added: {reaction_type}. Buffer: {after_cleanup} (cleaned {before_cleanup - after_cleanup})")
+        logger.debug(f"🕐 Reaction timestamp: {timestamp}, Cutoff: {cutoff}")
+        
+        # If buffer is still 0 after adding, there's a timezone problem
+        if after_cleanup == 0:
+            logger.error(f"❌ BUFFER EMPTY AFTER ADD! Timestamp: {timestamp} (aware: {timestamp.tzinfo}), Cutoff: {cutoff}")
     
     def get_recent_reactions(self, seconds: int) -> List[Dict]:
         """Get reactions from the last N seconds"""
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=seconds)
-        return [
+        recent = [
             r for r in self.reaction_buffer 
             if r['timestamp'] > cutoff
         ]
+        logger.debug(f"📊 Recent reactions ({seconds}s): {len(recent)}/{len(self.reaction_buffer)} total")
+        return recent
     
     async def check_for_alerts(self) -> Optional[Dict]:
         """
@@ -171,32 +183,57 @@ class PacingAgent:
         """
         # Get reaction summary for last 2 minutes
         reaction_summary = self._get_reaction_summary(120)
+        total_reactions = sum(reaction_summary.values())
         
-        if sum(reaction_summary.values()) == 0:
-            return {
-                'type': 'sentiment',
-                'severity': 'info',
-                'title': '📊 Audience Engagement',
-                'message': 'No reactions in the last 2 minutes',
-                'timestamp': datetime.now(timezone.utc).isoformat(),
-                'reaction_summary': reaction_summary
-            }
+        logger.info(f"📊 Generating AI insights: {total_reactions} reactions in last 2 min")
+        logger.debug(f"📊 Reaction breakdown: {reaction_summary}")
+        logger.debug(f"📊 Total buffer size: {len(self.reaction_buffer)}")
+        
+        if total_reactions == 0:
+            # Check if we have ANY reactions in the buffer
+            if len(self.reaction_buffer) > 0:
+                logger.info(f"⚠️ No reactions in last 2min, but {len(self.reaction_buffer)} in buffer")
+                # Show what we have in the buffer
+                buffer_summary = self._get_reaction_summary(600)  # Last 10 minutes
+                buffer_total = sum(buffer_summary.values())
+                
+                return {
+                    'type': 'sentiment',
+                    'severity': 'info',
+                    'title': '📊 Recent Audience Activity',
+                    'message': f'{buffer_total} reactions received recently (past few minutes)',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'reaction_summary': buffer_summary
+                }
+            else:
+                return {
+                    'type': 'sentiment',
+                    'severity': 'info',
+                    'title': '📊 Audience Engagement',
+                    'message': 'Waiting for audience reactions...',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'reaction_summary': {}
+                }
         
         # Get AI analysis
+        logger.info(f"🤖 Calling Gemini API for pacing analysis...")
         ai_analysis = await self.gemini.analyze_pacing(
             reaction_summary,
             time_window_minutes=2
         )
         
         if not ai_analysis:
+            logger.warning("⚠️ Gemini API returned no analysis")
             return {
                 'type': 'sentiment',
                 'severity': 'info',
                 'title': '📊 Audience Activity',
-                'message': f'Received {sum(reaction_summary.values())} reactions',
+                'message': f'Received {total_reactions} reactions in last 2 minutes',
                 'timestamp': datetime.now(timezone.utc).isoformat(),
                 'reaction_summary': reaction_summary
             }
+        
+        logger.info(f"✅ AI Analysis complete: {ai_analysis.get('sentiment', 'unknown')}")
         
         # Determine severity based on sentiment
         severity_map = {

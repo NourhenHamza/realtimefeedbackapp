@@ -84,12 +84,16 @@ class AgentManager:
             reaction_type: Type of reaction
             timestamp: When the reaction occurred
         """
+        logger.info(f"🎯 Reaction received: {reaction_type} at {timestamp}")
+        
         # Add to pacing agent
         self.pacing_agent.add_reaction(reaction_type, timestamp)
+        logger.debug(f"📊 Pacing agent buffer: {len(self.pacing_agent.reaction_buffer)} reactions")
         
         # Check for immediate pacing alerts
         alert = await self.pacing_agent.check_for_alerts()
         if alert:
+            logger.info(f"🚨 Immediate alert triggered: {alert['title']}")
             await self._send_alert(alert)
         
         # If it's a SHOW_CODE reaction, add to code demand agent
@@ -99,6 +103,7 @@ class AgentManager:
             # Check for immediate code demand alert
             code_alert = await self.code_demand_agent.check_for_alert()
             if code_alert:
+                logger.info(f"💻 Code demand alert triggered: {code_alert['title']}")
                 await self._send_alert(code_alert)
     
     async def on_question(self, question_text: str, user_name: str, timestamp: datetime):
@@ -110,7 +115,7 @@ class AgentManager:
             user_name: Name of the person asking
             timestamp: When the question was asked
         """
-        logger.info(f"📥 Question: '{question_text[:40]}...' from {user_name}")
+        logger.info(f"🔥 Question: '{question_text[:40]}...' from {user_name}")
         
         # Add to Q&A grouper
         self.qa_grouper.add_question(question_text, user_name, timestamp)
@@ -123,6 +128,7 @@ class AgentManager:
         # Try to group if conditions are met
         grouped_alert = await self.qa_grouper.group_questions()
         if grouped_alert:
+            logger.info(f"💬 Question grouping alert: {grouped_alert['title']}")
             await self._send_alert(grouped_alert)
     
     async def _periodic_ai_insights(self):
@@ -134,8 +140,9 @@ class AgentManager:
                 if not self.running:
                     break
                 
-                logger.debug("🔄 Periodic AI insights check")
+                logger.info("🔄 Periodic AI insights check starting...")
                 insights = await self.pacing_agent.generate_ai_insights()
+                logger.info(f"✅ AI insights generated: {insights['title']}")
                 await self._send_alert(insights)
             
             except asyncio.CancelledError:
@@ -158,6 +165,7 @@ class AgentManager:
                 logger.debug("🔄 Periodic question grouping check")
                 grouped_alert = await self.qa_grouper.group_questions()
                 if grouped_alert:
+                    logger.info(f"💬 Question grouping completed")
                     await self._send_alert(grouped_alert)
             
             except asyncio.CancelledError:
@@ -180,6 +188,7 @@ class AgentManager:
                 logger.debug("🔄 Periodic code insights check")
                 insights = await self.code_demand_agent.generate_periodic_insights()
                 if insights:
+                    logger.info(f"💻 Code insights generated")
                     await self._send_alert(insights)
             
             except asyncio.CancelledError:
@@ -206,12 +215,14 @@ class AgentManager:
                 # Analyze pending questions
                 sentiment_alert = await self.sentiment_agent.analyze_pending_questions()
                 if sentiment_alert:
+                    logger.info(f"😊 Sentiment analysis completed")
                     await self._send_alert(sentiment_alert)
                 
                 # Check for sentiment trends (only if we have data)
                 if len(self.sentiment_agent.sentiment_timeline) >= 2:
                     trend_alert = await self.sentiment_agent.generate_trend_alert()
                     if trend_alert:
+                        logger.info(f"📈 Sentiment trend detected")
                         await self._send_alert(trend_alert)
             
             except asyncio.CancelledError:
@@ -234,7 +245,7 @@ class AgentManager:
                     "data": alert
                 }
             )
-            logger.info(f"📢 Alert: {alert['title']}")
+            logger.info(f"📢 Alert sent: {alert['title']}")
         except Exception as e:
             logger.error(f"❌ Error sending alert: {e}")
     

@@ -24,12 +24,23 @@ interface AIAlert {
   data?: any;
 }
 
+// Fonction pour générer un ID de session aléatoire
+function generateSessionId(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let result = '';
+  for (let i = 0; i < 10; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 export default function PresenterPage() {
   const [sessionId, setSessionId] = useState<string>('');
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [aiAlerts, setAiAlerts] = useState<AIAlert[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleWebSocketMessage = useCallback((data: any) => {
     console.log('WebSocket message received:', data);
@@ -85,27 +96,35 @@ export default function PresenterPage() {
     }
   }, []);
 
-  const handleStartSession = async () => {
-    if (sessionId.trim()) {
-      try {
-        const response = await fetch('http://localhost:8000/api/session/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sessionId }),
-        });
+  const handleCreateSession = async () => {
+    setIsCreating(true);
+    
+    // Générer un nouvel ID de session
+    const newSessionId = generateSessionId();
+    setSessionId(newSessionId);
 
-        const result = await response.json();
+    try {
+      const response = await fetch('http://localhost:8000/api/session/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: newSessionId }),
+      });
 
-        if (response.ok) {
-          localStorage.setItem('presenter_session_id', sessionId);
-          setIsSessionActive(true);
-        } else {
-          alert(`Failed to create session: ${result.detail || 'Unknown error'}`);
-        }
-      } catch (error) {
-        console.error('Error creating session:', error);
-        alert('Failed to create session. Is the backend running?');
+      const result = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('presenter_session_id', newSessionId);
+        setIsSessionActive(true);
+      } else {
+        alert(`Failed to create session: ${result.detail || 'Unknown error'}`);
+        setSessionId('');
       }
+    } catch (error) {
+      console.error('Error creating session:', error);
+      alert('Failed to create session. Is the backend running?');
+      setSessionId('');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -146,35 +165,42 @@ export default function PresenterPage() {
               Presenter Dashboard
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
-              Create a session to start with AI insights
+              Create a new session with AI insights
             </p>
           </div>
 
           <div className="space-y-6">
-            <div>
-              <label htmlFor="sessionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Session ID
-              </label>
-              <input
-                type="text"
-                id="sessionId"
-                value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleStartSession()}
-                placeholder="e.g., session-123"
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Share this ID with your audience
+            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+                <span className="font-semibold">✨ Auto-generated Session ID</span>
+                <br />
+                <span className="text-xs">A unique ID will be created for your session</span>
               </p>
             </div>
 
             <button
-              onClick={handleStartSession}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg"
+              onClick={handleCreateSession}
+              disabled={isCreating}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start Session with AI
+              {isCreating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Creating Session...
+                </span>
+              ) : (
+                '🚀 Create New Session'
+              )}
             </button>
+
+            <div className="text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                💡 The session ID will be automatically generated and displayed
+              </p>
+            </div>
           </div>
         </div>
       </main>
@@ -193,18 +219,21 @@ export default function PresenterPage() {
               </h1>
               <div className="flex items-center space-x-4">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Session: <span className="font-mono font-semibold">{sessionId}</span>
+                  Session ID: <span className="font-mono font-semibold text-lg text-blue-600 dark:text-blue-400">{sessionId}</span>
                 </p>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(sessionId);
-                    alert('Session ID copied!');
+                    alert('Session ID copied to clipboard! Share it with your audience.');
                   }}
-                  className="text-xs px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
+                  className="text-xs px-3 py-1 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200 rounded-md transition-colors font-medium"
                 >
-                  Copy ID
+                  📋 Copy ID
                 </button>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Share this ID with your audience to join the session
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

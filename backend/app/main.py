@@ -522,12 +522,15 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
         if not session or session.status != "active":
             raise HTTPException(status_code=404, detail="Session not found or has ended")
         
+        # Create timezone-aware timestamp NOW
+        reaction_timestamp = datetime.now(timezone.utc)
+        
         new_reaction = ReactionDB(
             reaction_type=reaction.reaction_type,
             session_id=reaction.session_id,
             user_id=reaction.user_id,
             user_name=reaction.user_name,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=reaction_timestamp  # Use our timestamp
         )
         db.add(new_reaction)
         
@@ -535,16 +538,19 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
         session.last_activity = datetime.now(timezone.utc)
         db.commit()
         
-        # Notify AI agents
+        # Log the timestamp we're sending to agents
+        logger.info(f"📝 Reaction timestamp: {reaction_timestamp} (tzinfo: {reaction_timestamp.tzinfo})")
+        
+        # Notify AI agents with OUR timestamp
         agent_manager = get_agent_manager(reaction.session_id, ws_manager)
-        await agent_manager.on_reaction(reaction.reaction_type.value, new_reaction.timestamp)
+        await agent_manager.on_reaction(reaction.reaction_type.value, reaction_timestamp)
         
         await ws_manager.broadcast_to_session(reaction.session_id, {
             "type": "reaction",
             "data": {
                 "reaction_type": reaction.reaction_type.value,
                 "user_name": reaction.user_name,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": reaction_timestamp.isoformat()
             }
         })
         
@@ -552,7 +558,7 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
     except Exception as e:
         logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 @app.post("/api/audience/question", tags=["Audience"])
 async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)):
     """Submit question"""
