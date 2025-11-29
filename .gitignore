@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# =========================
+# Frontend/Node.js
+# =========================
 # dependencies
 /node_modules
 /.pnp
@@ -20,12 +23,6 @@
 # production
 /build
 node_modules/
-.env
-.DS_Store
-*.log
-# misc
-.DS_Store
-*.pem
 
 # debug
 npm-debug.log*
@@ -33,12 +30,119 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# =========================
+# Python Backend
+# =========================
+# Virtual environments
+backend/venv/
+backend/venv*/
+backend/.venv/
+backend/env/
+backend/ENV/
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cgi
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Database (SQLite) - if you use it
+*.db
+*.sqlite3
+
+# =========================
+# General/OS
+# =========================
+# misc
+.DS_Store
+*.pem
+*.log
+
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

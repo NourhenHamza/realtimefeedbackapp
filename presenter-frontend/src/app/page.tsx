@@ -1,5 +1,6 @@
 'use client';
 
+import AIInsightsPanel from '@/components/AIInsightsPanel';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import QuestionFeed from '@/components/QuestionFeed';
 import ReactionDisplay from '@/components/ReactionDisplay';
@@ -7,11 +8,24 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { api, Question, Reaction } from '@/lib/api';
 import { useCallback, useEffect, useState } from 'react';
 
+interface AIAlert {
+  type: string;
+  severity: 'info' | 'warning' | 'critical' | 'success';
+  title: string;
+  message: string;
+  timestamp: string;
+  ai_analysis?: any;
+  reaction_summary?: Record<string, number>;
+  themes?: any[];
+  data?: any;
+}
+
 export default function PresenterPage() {
   const [sessionId, setSessionId] = useState<string>('');
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [aiAlerts, setAiAlerts] = useState<AIAlert[]>([]);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((data: any) => {
@@ -21,6 +35,19 @@ export default function PresenterPage() {
       setReactions((prev) => [data.data, ...prev].slice(0, 100));
     } else if (data.type === 'question') {
       setQuestions((prev) => [data.data, ...prev]);
+    } else if (data.type === 'ai_alert') {
+      // New AI alert received
+      setAiAlerts((prev) => [data.data, ...prev].slice(0, 20)); // Keep last 20 alerts
+      
+      // Show browser notification for critical alerts
+      if (data.data.severity === 'critical' && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification(data.data.title, {
+            body: data.data.message,
+            icon: '/icon.png',
+          });
+        }
+      }
     }
   }, []);
 
@@ -29,6 +56,13 @@ export default function PresenterPage() {
     url: isSessionActive ? api.getWebSocketUrl(sessionId) : '',
     onMessage: handleWebSocketMessage,
   });
+
+  // Request notification permission
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Load initial data when session starts
   useEffect(() => {
@@ -59,7 +93,6 @@ export default function PresenterPage() {
     e.preventDefault();
     if (sessionId.trim()) {
       try {
-        // Create session on backend
         const response = await fetch('http://localhost:8000/api/session/create', {
           method: 'POST',
           headers: {
@@ -89,16 +122,10 @@ export default function PresenterPage() {
     }
 
     try {
-      // Send end_session message via WebSocket first
       sendMessage({ type: 'end_session' });
-
-      // Wait a bit for WebSocket message to be sent
       await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Disconnect WebSocket
       disconnect();
 
-      // Call API to end the session
       const response = await fetch(`http://localhost:8000/api/session/${sessionId}`, {
         method: 'DELETE',
       });
@@ -109,18 +136,19 @@ export default function PresenterPage() {
         setIsSessionActive(false);
         setReactions([]);
         setQuestions([]);
+        setAiAlerts([]);
       } else {
         const result = await response.json();
         alert(`Failed to end session: ${result.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error ending session:', error);
-      // Still cleanup locally even if API call fails
       localStorage.removeItem('presenter_session_id');
       setSessionId('');
       setIsSessionActive(false);
       setReactions([]);
       setQuestions([]);
+      setAiAlerts([]);
     }
   };
 
@@ -134,7 +162,7 @@ export default function PresenterPage() {
               Presenter Dashboard
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
-              Create a session to start
+              Create a session to start with AI insights
             </p>
           </div>
 
@@ -164,7 +192,7 @@ export default function PresenterPage() {
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg"
             >
-              Start Session
+              Start Session with AI
             </button>
           </form>
         </div>
@@ -179,8 +207,9 @@ export default function PresenterPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-2">
                 Presenter Dashboard
+                <span className="text-lg">🤖</span>
               </h1>
               <div className="flex items-center space-x-4">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -210,22 +239,30 @@ export default function PresenterPage() {
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Reactions Panel */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <ReactionDisplay reactions={reactions} />
+        {/* Main Content Grid - 3 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* AI Insights Panel - Full height on left */}
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <AIInsightsPanel alerts={aiAlerts} />
           </div>
 
-          {/* Questions Panel */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <QuestionFeed questions={questions} />
+          {/* Reactions and Questions - Right side */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Reactions Panel */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <ReactionDisplay reactions={reactions} />
+            </div>
+
+            {/* Questions Panel */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <QuestionFeed questions={questions} />
+            </div>
           </div>
         </div>
 
         {/* Footer Info */}
         <div className="mt-6 text-center text-gray-600 dark:text-gray-400 text-sm">
-          <p>Updates appear in real-time • Audience joins at localhost:3000</p>
+          <p>Updates appear in real-time • AI-powered insights • Audience joins at localhost:3000</p>
         </div>
       </div>
     </main>

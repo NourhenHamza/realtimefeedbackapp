@@ -1,6 +1,6 @@
 """
-Backend with PostgreSQL Database
-Install: pip install fastapi uvicorn sqlalchemy psycopg2-binary asyncpg
+Backend with PostgreSQL Database and AI Agents
+Install: pip install fastapi uvicorn sqlalchemy psycopg2-binary asyncpg google-generativeai python-dotenv
 """
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query, Depends
@@ -18,6 +18,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
+# Import AI Agent components
+from agent_manager import get_agent_manager, remove_agent_manager
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,14 +28,11 @@ logger = logging.getLogger(__name__)
 # DATABASE CONFIGURATION
 # ============================================================================
 
-# CHANGE THIS to your PostgreSQL connection string
 DATABASE_URL = "postgresql://postgres:admin@localhost:5432/feedback_db"
-# For development/testing with SQLite:
 # DATABASE_URL = "sqlite:///./feedback.db"
 
 engine = create_engine(
     DATABASE_URL,
-    # Remove these lines if using PostgreSQL
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
     poolclass=StaticPool if "sqlite" in DATABASE_URL else None,
 )
@@ -85,7 +84,6 @@ class QuestionDB(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 
-# Create tables
 Base.metadata.create_all(bind=engine)
 
 # ============================================================================
@@ -100,9 +98,7 @@ class ReactionEvent(BaseModel):
     user_name: Optional[str] = Field(None, max_length=100)
     
     class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+        json_encoders = {datetime: lambda v: v.isoformat()}
 
 
 class QuestionEvent(BaseModel):
@@ -120,20 +116,11 @@ class QuestionEvent(BaseModel):
         return v
     
     class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+        json_encoders = {datetime: lambda v: v.isoformat()}
 
 
 class SessionCreateRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
-
-
-class HealthResponse(BaseModel):
-    status: str
-    timestamp: datetime
-    active_connections: int
-    active_sessions: int
 
 
 # ============================================================================
@@ -273,8 +260,8 @@ class WebSocketConnectionManager:
 # ============================================================================
 
 app = FastAPI(
-    title="Presentation Feedback API with PostgreSQL",
-    version="4.0.0"
+    title="Presentation Feedback API with AI Agents",
+    version="5.0.0"
 )
 
 app.add_middleware(
@@ -314,10 +301,14 @@ async def create_session(request: SessionCreateRequest, db: Session = Depends(ge
         db.add(new_session)
         db.commit()
         
-        logger.info(f"✅ Session created: {request.session_id}")
+        # Initialize AI agents for this session
+        agent_manager = get_agent_manager(request.session_id, ws_manager)
+        await agent_manager.start()
+        
+        logger.info(f"✅ Session created with AI agents: {request.session_id}")
         return {
             "status": "created",
-            "message": "Session created successfully",
+            "message": "Session created successfully with AI agents",
             "session_id": request.session_id
         }
     except Exception as e:
@@ -329,6 +320,9 @@ async def create_session(request: SessionCreateRequest, db: Session = Depends(ge
 async def end_session(session_id: str, db: Session = Depends(get_db)):
     """End a session and clean up"""
     try:
+        # Stop AI agents
+        await remove_agent_manager(session_id)
+        
         await ws_manager.disconnect_all_from_session(session_id)
         
         session = db.query(SessionDB).filter(SessionDB.session_id == session_id).first()
@@ -356,15 +350,25 @@ async def check_session_status(session_id: str, db: Session = Depends(get_db)):
     session = db.query(SessionDB).filter(SessionDB.session_id == session_id).first()
     is_active = session is not None and session.status == "active"
     
+    # Get agent status if active
+    agent_status = None
+    if is_active:
+        try:
+            agent_manager = get_agent_manager(session_id, ws_manager)
+            agent_status = agent_manager.get_status()
+        except:
+            pass
+    
     return {
         "session_id": session_id,
         "active": is_active,
-        "message": "Session is active" if is_active else "Session not found or has ended"
+        "message": "Session is active" if is_active else "Session not found or has ended",
+        "agent_status": agent_status
     }
 
 
 # ============================================================================
-# PRESENTER ENDPOINTS (NEW)
+# PRESENTER ENDPOINTS
 # ============================================================================
 
 @app.get("/api/presenter/reactions", tags=["Presenter"])
@@ -442,6 +446,10 @@ async def websocket_presenter_endpoint(websocket: WebSocket, session_id: str):
             new_session = SessionDB(session_id=session_id, status="active")
             db.add(new_session)
             db.commit()
+            
+            # Start AI agents
+            agent_manager = get_agent_manager(session_id, ws_manager)
+            await agent_manager.start()
         
         await ws_manager.connect(websocket, session_id)
         
@@ -489,6 +497,7 @@ async def websocket_presenter_endpoint(websocket: WebSocket, session_id: str):
         await ws_manager.disconnect(websocket, session_id)
         
         if is_last_presenter or ws_manager.get_connection_count_for_session(session_id) == 0:
+            await remove_agent_manager(session_id)
             session = db.query(SessionDB).filter(SessionDB.session_id == session_id).first()
             if session:
                 db.delete(session)
@@ -525,6 +534,10 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
         session.last_activity = datetime.utcnow()
         db.commit()
         
+        # Notify AI agents
+        agent_manager = get_agent_manager(reaction.session_id, ws_manager)
+        await agent_manager.on_reaction(reaction.reaction_type.value, new_reaction.timestamp)
+        
         await ws_manager.broadcast_to_session(reaction.session_id, {
             "type": "reaction",
             "data": {
@@ -539,7 +552,6 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
         logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.post("/api/audience/question", tags=["Audience"])
 async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)):
     """Submit question"""
@@ -548,12 +560,15 @@ async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)
         if not session or session.status != "active":
             raise HTTPException(status_code=404, detail="Session not found or has ended")
         
+        # Create timestamp
+        question_timestamp = datetime.utcnow()
+        
         new_question = QuestionDB(
             question_text=question.question_text,
             session_id=question.session_id,
             user_id=question.user_id,
             user_name=question.user_name,
-            timestamp=datetime.utcnow()
+            timestamp=question_timestamp
         )
         db.add(new_question)
         
@@ -561,24 +576,38 @@ async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)
         session.last_activity = datetime.utcnow()
         db.commit()
         
+        # Notify AI agents - ensure user_name is not None
+        agent_manager = get_agent_manager(question.session_id, ws_manager)
+        user_name = question.user_name if question.user_name else "Anonymous"
+        
+        # Pass the timestamp we just created
+        await agent_manager.on_question(
+            question.question_text, 
+            user_name,
+            question_timestamp
+        )
+        
         await ws_manager.broadcast_to_session(question.session_id, {
             "type": "question",
             "data": {
                 "question_text": question.question_text,
                 "user_name": question.user_name,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": question_timestamp.isoformat()
             }
         })
         
         return {"status": "success", "message": "Question recorded"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Error submitting question: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/", tags=["Root"])
 async def root():
-    return {"service": "Feedback API with PostgreSQL", "version": "4.0.0"}
+    return {"service": "Feedback API with AI Agents", "version": "5.0.0"}
 
 
 if __name__ == "__main__":
