@@ -5,7 +5,7 @@ import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import asyncio
 import time
 import re
@@ -19,7 +19,7 @@ class GeminiService:
     """
     Service for interacting with Google Gemini API
 
-    Uses gemini-1.5-flash by default (free, fast).
+    Uses gemini-2.5-flash by default (free, fast).
     Falls back to alternate models if the chosen model is not supported.
     """
 
@@ -43,8 +43,6 @@ class GeminiService:
         for m in self.PREFERRED_MODELS:
             try:
                 self.model = genai.GenerativeModel(m)
-                # a quick lightweight call to validate model support could be added here,
-                # but we'll rely on generate_content calls to surface issues.
                 self.model_name = m
                 logger.info(f"Gemini Service initialized with model: {m}")
                 break
@@ -53,14 +51,13 @@ class GeminiService:
                 continue
 
         if self.model is None:
-            # As a last resort, initialize the first preferred model (will likely fail on generate)
+            # As a last resort, initialize the first preferred model
             self.model_name = self.PREFERRED_MODELS[0]
             self.model = genai.GenerativeModel(self.model_name)
             logger.info(f"Fallback: Gemini Service initialized with model: {self.model_name}")
 
         # Rate limiting tracking
         self.last_request_time = 0
-        # flash is quick; 1s interval is generally safe, increase if you hit quota errors
         self.min_request_interval = 1.0
 
         logger.info("Gemini Service ready")
@@ -122,7 +119,6 @@ class GeminiService:
         """
         for attempt in range(retry_count):
             try:
-                # Wait for rate limit
                 await self._wait_for_rate_limit()
 
                 generation_config = genai.types.GenerationConfig(
@@ -130,24 +126,19 @@ class GeminiService:
                     max_output_tokens=max_tokens,
                 )
 
-                # Some genai clients are blocking — use to_thread to avoid blocking event loop
                 response = await asyncio.to_thread(
                     self.model.generate_content,
                     prompt,
                     generation_config=generation_config
                 )
 
-                # Many SDK responses have .text or choices — handle common cases
                 if response is None:
                     logger.warning(f"Empty response object from Gemini (attempt {attempt + 1}/{retry_count})")
                     raise RuntimeError("Empty response")
 
-                # Preferred property
                 text = getattr(response, "text", None)
                 if not text:
-                    # Try alternative shapes
                     try:
-                        # If response.choices exists
                         choices = getattr(response, "choices", None)
                         if choices and len(choices) > 0:
                             text = choices[0].get("message", {}).get("content") if isinstance(choices[0], dict) else getattr(choices[0], "text", None)
@@ -164,17 +155,13 @@ class GeminiService:
                 error_msg = str(e)
                 logger.debug(f"Generate attempt {attempt+1} error: {error_msg[:500]}")
 
-                # Model not found -> try switching model
                 switched = await self._try_switch_model_on_404(error_msg)
                 if switched:
-                    # Try again immediately with the new model
                     logger.info("Retrying generation with fallback model...")
                     continue
 
-                # Rate limit-like errors
                 if "429" in error_msg or "quota" in error_msg.lower() or "resource exhausted" in error_msg.lower():
                     if attempt < retry_count - 1:
-                        # Attempt to parse suggested retry time
                         retry_delay = 10
                         match = re.search(r'(\d+\.?\d*)\s*s', error_msg.lower())
                         if match:
@@ -189,14 +176,12 @@ class GeminiService:
                         logger.error("Rate limit exceeded after retries")
                         return None
 
-                # For other transient errors, small backoff and retry
                 if attempt < retry_count - 1:
                     backoff = 2 ** attempt
                     logger.warning(f"Transient error, retrying in {backoff}s (attempt {attempt+1}/{retry_count})")
                     await asyncio.sleep(backoff)
                     continue
 
-                # Final failure
                 logger.error(f"Error generating content: {error_msg[:500]}")
                 return None
 
@@ -233,7 +218,6 @@ SENTIMENT: [sentiment word]
             if not response_text:
                 return None
 
-            # Parse the response
             lines = response_text.strip().split('\n')
             result = {
                 'assessment': '',
@@ -299,7 +283,6 @@ QUESTION: [representative question text]
             if not response_text:
                 return None
 
-            # Parse themes
             themes = []
             current_theme = {}
 
@@ -322,11 +305,9 @@ QUESTION: [representative question text]
                 elif line.upper().startswith('QUESTION:'):
                     current_theme['representative_question'] = line.split(':', 1)[1].strip()
 
-            # Add last theme
             if current_theme:
                 themes.append(current_theme)
 
-            # Match questions to themes (simple heuristic)
             for theme in themes:
                 theme['questions'] = []
                 rep_q = theme['representative_question'].lower()
@@ -336,7 +317,6 @@ QUESTION: [representative question text]
                     if any(word in q_text for word in rep_words):
                         theme['questions'].append(q)
 
-                # If no matches, add first few questions
                 if not theme['questions'] and questions:
                     theme['questions'] = questions[:min(2, len(questions))]
 
@@ -347,6 +327,78 @@ QUESTION: [representative question text]
 
         except Exception as e:
             logger.error(f"Error grouping questions: {e}")
+            return None
+
+    async def analyze_question_sentiment(
+        self,
+        questions: List[Dict[str, str]]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Analyze sentiment/emotion of multiple questions
+        
+        Args:
+            questions: List of question dicts with 'text' key
+            
+        Returns:
+            Dict with sentiments list and distribution, or None
+        """
+        if not questions:
+            return None
+
+        questions_text = "\n".join([
+            f"{i+1}. {q['text']}"
+            for i, q in enumerate(questions)
+        ])
+
+        prompt = f"""Analyze the emotional sentiment of each question from an audience during a presentation.
+
+Classify each question as ONE of: interested, confused, frustrated, excited, neutral
+
+Questions:
+{questions_text}
+
+Respond with ONLY the number and sentiment, like:
+1. confused
+2. interested
+3. excited
+
+Your analysis:"""
+
+        try:
+            response_text = await self.generate_content(prompt, temperature=0.3, max_tokens=300)
+
+            if not response_text:
+                return None
+
+            sentiments = []
+            lines = response_text.strip().split('\n')
+            categories = ['interested', 'confused', 'frustrated', 'excited', 'neutral']
+
+            for line in lines:
+                line = line.strip().lower()
+                for category in categories:
+                    if category in line:
+                        sentiments.append(category)
+                        break
+
+            while len(sentiments) < len(questions):
+                sentiments.append('neutral')
+
+            from collections import defaultdict
+            distribution = defaultdict(int)
+            for sentiment in sentiments[:len(questions)]:
+                distribution[sentiment] += 1
+
+            dominant = max(distribution.items(), key=lambda x: x[1])[0]
+
+            return {
+                'sentiments': sentiments[:len(questions)],
+                'distribution': dict(distribution),
+                'dominant_sentiment': dominant
+            }
+
+        except Exception as e:
+            logger.error(f"Error analyzing sentiment: {e}")
             return None
 
     def _format_reactions(self, reaction_summary: Dict[str, int]) -> str:

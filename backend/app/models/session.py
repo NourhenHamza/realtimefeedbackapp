@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional, List, Dict
 from enum import Enum
+from datetime import datetime, timezone
 
 
 class SessionStatus(str, Enum):
@@ -34,7 +35,7 @@ class SessionInfo(BaseModel):
     
     def update_timestamp(self):
         """Update the updated_at timestamp"""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
     
     class Config:
         json_schema_extra = {

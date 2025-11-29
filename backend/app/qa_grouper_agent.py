@@ -4,7 +4,7 @@ Q&A Grouper Agent - Groups similar questions by theme
 from datetime import datetime
 from typing import List, Dict, Optional
 import logging
-
+from datetime import datetime, timezone
 from config import QA_GROUPER_CONFIG
 from gemini_service import get_gemini_service
 
@@ -77,7 +77,7 @@ class QAGrouperAgent:
             return timestamp.isoformat()
         else:
             # Fallback to current time if invalid
-            return datetime.utcnow().isoformat()
+            return datetime.now(timezone.utc).isoformat()
     
     async def group_questions(self) -> Optional[Dict]:
         """
@@ -122,7 +122,7 @@ class QAGrouperAgent:
                     'severity': 'info',
                     'title': '💬 New Questions Received',
                     'message': f'Received {len(ungrouped)} new questions (AI grouping temporarily unavailable)',
-                    'timestamp': datetime.utcnow().isoformat(),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
                     'themes': [{
                         'theme': 'Recent Questions',
                         'count': len(ungrouped),
@@ -164,7 +164,7 @@ class QAGrouperAgent:
                         theme_questions.append({
                             'text': matching_q.get('text', ''),
                             'user_name': matching_q.get('user_name', 'Anonymous'),
-                            'timestamp': self._safe_timestamp_to_iso(matching_q.get('timestamp', datetime.utcnow()))
+                            'timestamp': self._safe_timestamp_to_iso(matching_q.get('timestamp', datetime.now(timezone.utc)))
                         })
                 
                 theme = {
@@ -181,7 +181,7 @@ class QAGrouperAgent:
                 'severity': 'info',
                 'title': '💬 Questions Grouped by Theme',
                 'message': f'Identified {len(themes)} themes from {len(ungrouped)} questions',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'themes': themes
             }
         

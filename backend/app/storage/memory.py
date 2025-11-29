@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from app.models.events import ReactionEvent, QuestionEvent, SessionInfo
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +162,7 @@ class InMemoryStorage:
         """
         since = None
         if time_window:
-            since = datetime.utcnow() - time_window
+            since = datetime.now(timezone.utc) - time_window
         
         reactions = await self.get_recent_reactions(session_id, limit=self.max_reactions, since=since)
         

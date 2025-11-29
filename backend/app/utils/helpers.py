@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def create_event_message(event_type: str, data: Dict[str, Any]) -> Dict[str, Any
     return {
         "type": event_type,
         "data": data,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 

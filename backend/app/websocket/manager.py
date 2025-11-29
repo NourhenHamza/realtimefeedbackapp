@@ -10,6 +10,7 @@ import asyncio
 from typing import List, Dict, Set, Optional
 from datetime import datetime
 from fastapi import WebSocket, WebSocketDisconnect
+from datetime import datetime, timezone
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -72,7 +73,7 @@ class ConnectionManager:
             # Store metadata
             self.connection_metadata[websocket] = {
                 "session_id": session_id,
-                "connected_at": datetime.utcnow().isoformat(),
+                "connected_at": datetime.now(timezone.utc).isoformat(),
                 "messages_sent": 0
             }
             
@@ -87,7 +88,7 @@ class ConnectionManager:
                     "type": "connection",
                     "status": "connected",
                     "session_id": session_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "message": "Successfully connected to presenter dashboard"
                 },
                 websocket
@@ -185,7 +186,7 @@ class ConnectionManager:
         
         # Add timestamp if not present
         if "timestamp" not in message:
-            message["timestamp"] = datetime.utcnow().isoformat()
+            message["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         for connection in self.active_connections:
             if connection == exclude:
@@ -237,7 +238,7 @@ class ConnectionManager:
         
         # Add timestamp if not present
         if "timestamp" not in message:
-            message["timestamp"] = datetime.utcnow().isoformat()
+            message["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Add session_id to message
         message["session_id"] = session_id
@@ -324,7 +325,7 @@ class ConnectionManager:
         try:
             await websocket.send_json({
                 "type": "ping",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             return True
         except Exception as e:
@@ -365,7 +366,7 @@ class ConnectionManager:
                 for session_id, connections in self.session_connections.items()
             },
             "total_messages_sent": total_messages,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 

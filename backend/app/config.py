@@ -36,9 +36,53 @@ QA_GROUPER_CONFIG = {
     "max_questions_per_group": 20,
 }
 
+# Code Demand Agent Configuration
+CODE_DEMAND_AGENT_CONFIG = {
+    # Threshold for "Show Code" button clicks
+    "code_request_threshold": 3,
+    "code_request_window_seconds": 30,
+    
+    # Urgency levels based on frequency
+    "urgency_levels": {
+        "low": {"min": 3, "max": 4},      # 3-4 clicks
+        "medium": {"min": 5, "max": 6},   # 5-6 clicks
+        "high": {"min": 7, "max": 999},   # 7+ clicks
+    },
+    
+    # Alert cooldown
+    "alert_cooldown_seconds": 45,
+    
+    # AI analysis interval
+    "ai_analysis_interval_seconds": 60,
+}
+
+# Sentiment Agent Configuration
+SENTIMENT_AGENT_CONFIG = {
+    # Minimum questions to analyze
+    "min_questions_for_analysis": 2,
+    
+    # Analysis interval
+    "analysis_interval_seconds": 60,  # Every minute
+    
+    # Sentiment categories
+    "sentiment_categories": [
+        "interested",
+        "confused",
+        "frustrated",
+        "excited",
+        "neutral"
+    ],
+    
+    # Trend tracking window (in minutes)
+    "trend_window_minutes": 10,
+    
+    # Alert on negative sentiment threshold
+    "negative_sentiment_threshold": 0.6,  # 60% negative
+}
+
 # Gemini API Configuration
 GEMINI_CONFIG = {
-    # Model to use (gemini-1.5-flash is available on free tier)
+    # Model to use (gemini-2.5-flash is available on free tier)
     "model": "gemini-2.5-flash",
     
     # Generation parameters
@@ -46,5 +90,5 @@ GEMINI_CONFIG = {
     "max_tokens": 1000,
     
     # Rate limiting (requests per minute)
-    "rate_limit": 15,  # Free tier limit for gemini-1.5-flash
+    "rate_limit": 15,  # Free tier limit for gemini-flash
 }

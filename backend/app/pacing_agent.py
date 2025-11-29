@@ -1,7 +1,7 @@
 """
 Pacing Agent - Monitors audience reactions and provides pacing insights
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 from collections import defaultdict
 import logging
@@ -32,6 +32,21 @@ class PacingAgent:
         
         logger.info(f"Pacing Agent initialized for session {session_id}")
     
+    def _ensure_timezone_aware(self, dt: datetime) -> datetime:
+        """
+        Ensure datetime is timezone-aware (UTC)
+        
+        Args:
+            dt: datetime object that might be naive or aware
+            
+        Returns:
+            Timezone-aware datetime in UTC
+        """
+        if dt.tzinfo is None:
+            # Naive datetime - assume it's UTC and make it aware
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+    
     def add_reaction(self, reaction_type: str, timestamp: datetime):
         """
         Add a reaction to the buffer
@@ -40,21 +55,26 @@ class PacingAgent:
             reaction_type: Type of reaction (SPEED_UP, SLOW_DOWN, etc.)
             timestamp: When the reaction occurred
         """
+        # Ensure timestamp is timezone-aware
+        timestamp = self._ensure_timezone_aware(timestamp)
+        
         self.reaction_buffer.append({
             'type': reaction_type,
             'timestamp': timestamp
         })
         
         # Keep only reactions from last 10 minutes
-        cutoff = datetime.utcnow() - timedelta(minutes=10)
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
         self.reaction_buffer = [
             r for r in self.reaction_buffer 
             if r['timestamp'] > cutoff
         ]
+        
+        logger.debug(f"Reaction added: {reaction_type}. Buffer size: {len(self.reaction_buffer)}")
     
     def get_recent_reactions(self, seconds: int) -> List[Dict]:
         """Get reactions from the last N seconds"""
-        cutoff = datetime.utcnow() - timedelta(seconds=seconds)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=seconds)
         return [
             r for r in self.reaction_buffer 
             if r['timestamp'] > cutoff
@@ -67,7 +87,7 @@ class PacingAgent:
         Returns:
             Alert dictionary if threshold met, None otherwise
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Check "I'm Lost" critical threshold
         im_lost_window = self.config['im_lost_window_seconds']
@@ -158,7 +178,7 @@ class PacingAgent:
                 'severity': 'info',
                 'title': '📊 Audience Engagement',
                 'message': 'No reactions in the last 2 minutes',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'reaction_summary': reaction_summary
             }
         
@@ -174,7 +194,7 @@ class PacingAgent:
                 'severity': 'info',
                 'title': '📊 Audience Activity',
                 'message': f'Received {sum(reaction_summary.values())} reactions',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'reaction_summary': reaction_summary
             }
         
@@ -192,7 +212,7 @@ class PacingAgent:
             'severity': severity,
             'title': '🤖 AI Engagement Analysis',
             'message': ai_analysis['recommendation'],
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'ai_analysis': ai_analysis,
             'reaction_summary': reaction_summary
         }
@@ -218,7 +238,7 @@ class PacingAgent:
         Returns:
             True if alert can be sent, False if in cooldown
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         if alert_type in self.last_alerts:
             time_since_last = (now - self.last_alerts[alert_type]).total_seconds()

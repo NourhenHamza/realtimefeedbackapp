@@ -8,6 +8,8 @@ import logging
 
 from pacing_agent import PacingAgent
 from qa_grouper_agent import QAGrouperAgent
+from code_demand_agent import CodeDemandAgent
+from sentiment_agent import SentimentAgent
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +23,17 @@ class AgentManager:
         self.session_id = session_id
         self.ws_manager = websocket_manager
         
-        # Initialize agents
+        # Initialize all agents
         self.pacing_agent = PacingAgent(session_id)
         self.qa_grouper = QAGrouperAgent(session_id)
+        self.code_demand_agent = CodeDemandAgent(session_id)
+        self.sentiment_agent = SentimentAgent(session_id)
         
         # Background tasks
         self.running = False
         self.tasks = []
         
-        logger.info(f"Agent Manager initialized for session {session_id}")
+        logger.info(f"Agent Manager initialized for session {session_id} with 4 agents")
     
     async def start(self):
         """Start all background agent tasks"""
@@ -38,17 +42,27 @@ class AgentManager:
         
         self.running = True
         
-        # Start periodic AI insights (every 2 minutes)
+        # Start periodic AI insights (every 2 minutes) - Pacing Agent
         self.tasks.append(
             asyncio.create_task(self._periodic_ai_insights())
         )
         
-        # Start periodic question grouping check (every 30 seconds)
+        # Start periodic question grouping check (every 90 seconds) - QA Grouper
         self.tasks.append(
             asyncio.create_task(self._periodic_question_grouping())
         )
         
-        logger.info(f"Agent Manager started for session {self.session_id}")
+        # Start periodic code demand insights (every 60 seconds) - Code Demand Agent
+        self.tasks.append(
+            asyncio.create_task(self._periodic_code_insights())
+        )
+        
+        # Start periodic sentiment analysis (every 60 seconds) - Sentiment Agent
+        self.tasks.append(
+            asyncio.create_task(self._periodic_sentiment_analysis())
+        )
+        
+        logger.info(f"Agent Manager started for session {self.session_id} - 4 background tasks running")
     
     async def stop(self):
         """Stop all background agent tasks"""
@@ -73,10 +87,19 @@ class AgentManager:
         # Add to pacing agent
         self.pacing_agent.add_reaction(reaction_type, timestamp)
         
-        # Check for immediate alerts
+        # Check for immediate pacing alerts
         alert = await self.pacing_agent.check_for_alerts()
         if alert:
             await self._send_alert(alert)
+        
+        # If it's a SHOW_CODE reaction, add to code demand agent
+        if reaction_type == 'SHOW_CODE':
+            self.code_demand_agent.add_code_request(timestamp)
+            
+            # Check for immediate code demand alert
+            code_alert = await self.code_demand_agent.check_for_alert()
+            if code_alert:
+                await self._send_alert(code_alert)
     
     async def on_question(self, question_text: str, user_name: str, timestamp: datetime):
         """
@@ -89,6 +112,9 @@ class AgentManager:
         """
         # Add to Q&A grouper
         self.qa_grouper.add_question(question_text, user_name, timestamp)
+        
+        # Add to sentiment agent for emotional analysis
+        self.sentiment_agent.add_question(question_text, user_name, timestamp)
         
         # Try to group if conditions are met
         grouped_alert = await self.qa_grouper.group_questions()
@@ -113,25 +139,73 @@ class AgentManager:
                 logger.error(f"Error in periodic AI insights: {e}")
     
     async def _periodic_question_grouping(self):
-            """Periodically check if questions should be grouped"""
-            from config import QA_GROUPER_CONFIG
-            interval = QA_GROUPER_CONFIG['grouping_interval_seconds']
+        """Periodically check if questions should be grouped"""
+        from config import QA_GROUPER_CONFIG
+        interval = QA_GROUPER_CONFIG['grouping_interval_seconds']
         
-            while self.running:
-                try:
-                    await asyncio.sleep(interval)
+        while self.running:
+            try:
+                await asyncio.sleep(interval)
                 
-                    if not self.running:
-                        break
-                
-                    grouped_alert = await self.qa_grouper.group_questions()
-                    if grouped_alert:
-                        await self._send_alert(grouped_alert)
-            
-                except asyncio.CancelledError:
+                if not self.running:
                     break
-                except Exception as e:
-                    logger.error(f"Error in periodic question grouping: {e}")
+                
+                grouped_alert = await self.qa_grouper.group_questions()
+                if grouped_alert:
+                    await self._send_alert(grouped_alert)
+            
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in periodic question grouping: {e}")
+    
+    async def _periodic_code_insights(self):
+        """Periodically generate insights about code demand"""
+        from config import CODE_DEMAND_AGENT_CONFIG
+        interval = CODE_DEMAND_AGENT_CONFIG['ai_analysis_interval_seconds']
+        
+        while self.running:
+            try:
+                await asyncio.sleep(interval)
+                
+                if not self.running:
+                    break
+                
+                insights = await self.code_demand_agent.generate_periodic_insights()
+                if insights:
+                    await self._send_alert(insights)
+            
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in periodic code insights: {e}")
+    
+    async def _periodic_sentiment_analysis(self):
+        """Periodically analyze question sentiment"""
+        from config import SENTIMENT_AGENT_CONFIG
+        interval = SENTIMENT_AGENT_CONFIG['analysis_interval_seconds']
+        
+        while self.running:
+            try:
+                await asyncio.sleep(interval)
+                
+                if not self.running:
+                    break
+                
+                # Analyze pending questions
+                sentiment_alert = await self.sentiment_agent.analyze_pending_questions()
+                if sentiment_alert:
+                    await self._send_alert(sentiment_alert)
+                
+                # Check for sentiment trends
+                trend_alert = await self.sentiment_agent.generate_trend_alert()
+                if trend_alert:
+                    await self._send_alert(trend_alert)
+            
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in periodic sentiment analysis: {e}")
     
     async def _send_alert(self, alert: Dict):
         """
@@ -164,7 +238,9 @@ class AgentManager:
             "qa_grouper": {
                 "total_questions": self.qa_grouper.get_question_count(),
                 "ungrouped_questions": len(self.qa_grouper.get_ungrouped_questions())
-            }
+            },
+            "code_demand_agent": self.code_demand_agent.get_status(),
+            "sentiment_agent": self.sentiment_agent.get_status()
         }
 
 

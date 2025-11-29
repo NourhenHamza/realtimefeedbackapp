@@ -2,10 +2,12 @@
 
 import AIInsightsPanel from '@/components/AIInsightsPanel';
 import AlertNotification from '@/components/AlertNotification';
+import CodeDemandIndicator from '@/components/CodeDemandIndicator';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import QuestionFeed from '@/components/QuestionFeed';
 import ReactionDisplay from '@/components/ReactionDisplay';
 import ReactionHeatmap from '@/components/ReactionHeatmap';
+import SentimentMonitor from '@/components/SentimentMonitor';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { api, Question, Reaction } from '@/lib/api';
 import { useCallback, useEffect, useState } from 'react';
@@ -29,7 +31,6 @@ export default function PresenterPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [aiAlerts, setAiAlerts] = useState<AIAlert[]>([]);
 
-  // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((data: any) => {
     console.log('WebSocket message received:', data);
 
@@ -38,10 +39,8 @@ export default function PresenterPage() {
     } else if (data.type === 'question') {
       setQuestions((prev) => [data.data, ...prev]);
     } else if (data.type === 'ai_alert') {
-      // New AI alert received
-      setAiAlerts((prev) => [data.data, ...prev].slice(0, 20)); // Keep last 20 alerts
+      setAiAlerts((prev) => [data.data, ...prev].slice(0, 20));
       
-      // Show browser notification for critical alerts
       if (data.data.severity === 'critical' && 'Notification' in window) {
         if (Notification.permission === 'granted') {
           new Notification(data.data.title, {
@@ -53,20 +52,17 @@ export default function PresenterPage() {
     }
   }, []);
 
-  // WebSocket connection
   const { status, reconnect, sendMessage, disconnect } = useWebSocket({
     url: isSessionActive ? api.getWebSocketUrl(sessionId) : '',
     onMessage: handleWebSocketMessage,
   });
 
-  // Request notification permission
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
   }, []);
 
-  // Load initial data when session starts
   useEffect(() => {
     if (isSessionActive && sessionId) {
       const loadInitialData = async () => {
@@ -77,12 +73,10 @@ export default function PresenterPage() {
         setReactions(reactionsData);
         setQuestions(questionsData);
       };
-
       loadInitialData();
     }
   }, [isSessionActive, sessionId]);
 
-  // Session management from localStorage
   useEffect(() => {
     const storedSessionId = localStorage.getItem('presenter_session_id');
     if (storedSessionId) {
@@ -91,15 +85,12 @@ export default function PresenterPage() {
     }
   }, []);
 
-  const handleStartSession = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleStartSession = async () => {
     if (sessionId.trim()) {
       try {
         const response = await fetch('http://localhost:8000/api/session/create', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session_id: sessionId }),
         });
 
@@ -119,30 +110,21 @@ export default function PresenterPage() {
   };
 
   const handleEndSession = async () => {
-    if (!window.confirm('Are you sure you want to end this session? All data will be deleted.')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to end this session?')) return;
 
     try {
       sendMessage({ type: 'end_session' });
       await new Promise((resolve) => setTimeout(resolve, 100));
       disconnect();
 
-      const response = await fetch(`http://localhost:8000/api/session/${sessionId}`, {
-        method: 'DELETE',
-      });
+      await fetch(`http://localhost:8000/api/session/${sessionId}`, { method: 'DELETE' });
 
-      if (response.ok) {
-        localStorage.removeItem('presenter_session_id');
-        setSessionId('');
-        setIsSessionActive(false);
-        setReactions([]);
-        setQuestions([]);
-        setAiAlerts([]);
-      } else {
-        const result = await response.json();
-        alert(`Failed to end session: ${result.detail || 'Unknown error'}`);
-      }
+      localStorage.removeItem('presenter_session_id');
+      setSessionId('');
+      setIsSessionActive(false);
+      setReactions([]);
+      setQuestions([]);
+      setAiAlerts([]);
     } catch (error) {
       console.error('Error ending session:', error);
       localStorage.removeItem('presenter_session_id');
@@ -168,12 +150,9 @@ export default function PresenterPage() {
             </p>
           </div>
 
-          <form onSubmit={handleStartSession} className="space-y-6">
+          <div className="space-y-6">
             <div>
-              <label
-                htmlFor="sessionId"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
+              <label htmlFor="sessionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Session ID
               </label>
               <input
@@ -181,22 +160,22 @@ export default function PresenterPage() {
                 id="sessionId"
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleStartSession()}
                 placeholder="e.g., session-123"
                 className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                required
               />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Share this ID with your audience to let them join
+                Share this ID with your audience
               </p>
             </div>
 
             <button
-              type="submit"
+              onClick={handleStartSession}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-95 shadow-md hover:shadow-lg"
             >
               Start Session with AI
             </button>
-          </form>
+          </div>
         </div>
       </main>
     );
@@ -205,7 +184,6 @@ export default function PresenterPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 p-4 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             <div>
@@ -220,9 +198,9 @@ export default function PresenterPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(sessionId);
-                    alert('Session ID copied to clipboard!');
+                    alert('Session ID copied!');
                   }}
-                  className="text-xs px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors duration-200"
+                  className="text-xs px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
                 >
                   Copy ID
                 </button>
@@ -230,14 +208,11 @@ export default function PresenterPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {/* NEW: Sound Notification Control */}
               <AlertNotification alerts={aiAlerts} enableSound={true} />
-              
               <ConnectionStatus status={status} onReconnect={reconnect} />
-              
               <button
                 onClick={handleEndSession}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors duration-200"
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
               >
                 End Session
               </button>
@@ -245,38 +220,38 @@ export default function PresenterPage() {
           </div>
         </div>
 
-        {/* Main Content Grid - 3 columns */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* AI Insights Panel - Full height on left */}
-          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <AIInsightsPanel alerts={aiAlerts} />
-          </div>
-
-          {/* Reactions and Questions - Right side */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* NEW: Live Reaction Heatmap */}
+          <div className="lg:col-span-1 space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <ReactionHeatmap 
-                reactions={reactions} 
-                timeWindowMinutes={5} 
-              />
+              <CodeDemandIndicator alerts={aiAlerts} reactions={reactions} />
             </div>
 
-            {/* Reactions Panel */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <SentimentMonitor alerts={aiAlerts} />
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <AIInsightsPanel alerts={aiAlerts} />
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <ReactionHeatmap reactions={reactions} timeWindowMinutes={5} />
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <ReactionDisplay reactions={reactions} />
             </div>
 
-            {/* Questions Panel */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <QuestionFeed questions={questions} />
             </div>
           </div>
         </div>
 
-        {/* Footer Info */}
         <div className="mt-6 text-center text-gray-600 dark:text-gray-400 text-sm">
-          <p>🔴 Live • Real-time updates • AI-powered insights • Sound notifications • Audience joins at localhost:3000</p>
+          <p>🔴 Live • Real-time updates • AI-powered insights • Sound notifications</p>
         </div>
       </div>
     </main>
