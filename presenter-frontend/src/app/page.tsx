@@ -1,9 +1,11 @@
 'use client';
 
 import AIInsightsPanel from '@/components/AIInsightsPanel';
+import AlertNotification from '@/components/AlertNotification';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import QuestionFeed from '@/components/QuestionFeed';
 import ReactionDisplay from '@/components/ReactionDisplay';
+import ReactionHeatmap from '@/components/ReactionHeatmap';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { api, Question, Reaction } from '@/lib/api';
 import { useCallback, useEffect, useState } from 'react';
@@ -227,8 +229,12 @@ export default function PresenterPage() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* NEW: Sound Notification Control */}
+              <AlertNotification alerts={aiAlerts} enableSound={true} />
+              
               <ConnectionStatus status={status} onReconnect={reconnect} />
+              
               <button
                 onClick={handleEndSession}
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors duration-200"
@@ -248,6 +254,14 @@ export default function PresenterPage() {
 
           {/* Reactions and Questions - Right side */}
           <div className="lg:col-span-2 space-y-6">
+            {/* NEW: Live Reaction Heatmap */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <ReactionHeatmap 
+                reactions={reactions} 
+                timeWindowMinutes={5} 
+              />
+            </div>
+
             {/* Reactions Panel */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <ReactionDisplay reactions={reactions} />
@@ -262,7 +276,7 @@ export default function PresenterPage() {
 
         {/* Footer Info */}
         <div className="mt-6 text-center text-gray-600 dark:text-gray-400 text-sm">
-          <p>Updates appear in real-time • AI-powered insights • Audience joins at localhost:3000</p>
+          <p>🔴 Live • Real-time updates • AI-powered insights • Sound notifications • Audience joins at localhost:3000</p>
         </div>
       </div>
     </main>

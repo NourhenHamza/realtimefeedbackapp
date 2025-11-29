@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Set
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import asyncio
 import logging
@@ -55,11 +55,11 @@ class SessionDB(Base):
     __tablename__ = "sessions"
     
     session_id = Column(String(100), primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     status = Column(String(20), default="active")
     reaction_count = Column(Integer, default=0)
     question_count = Column(Integer, default=0)
-    last_activity = Column(DateTime, default=datetime.utcnow)
+    last_activity = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class ReactionDB(Base):
@@ -70,7 +70,7 @@ class ReactionDB(Base):
     session_id = Column(String(100), index=True)
     user_id = Column(String(200))
     user_name = Column(String(100))
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class QuestionDB(Base):
@@ -81,7 +81,7 @@ class QuestionDB(Base):
     session_id = Column(String(100), index=True)
     user_id = Column(String(200))
     user_name = Column(String(100))
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 Base.metadata.create_all(bind=engine)
@@ -93,7 +93,7 @@ Base.metadata.create_all(bind=engine)
 class ReactionEvent(BaseModel):
     reaction_type: ReactionType
     session_id: str = Field(..., min_length=1, max_length=100)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: Optional[str] = None
     user_name: Optional[str] = Field(None, max_length=100)
     
@@ -104,7 +104,7 @@ class ReactionEvent(BaseModel):
 class QuestionEvent(BaseModel):
     question_text: str = Field(..., min_length=1, max_length=500)
     session_id: str = Field(..., min_length=1, max_length=100)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: Optional[str] = None
     user_name: Optional[str] = Field(None, max_length=100)
     
@@ -168,7 +168,7 @@ class WebSocketConnectionManager:
             "type": "connection",
             "status": "connected",
             "session_id": session_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
     
     async def disconnect(self, websocket: WebSocket, session_id: str):
@@ -205,7 +205,7 @@ class WebSocketConnectionManager:
                 await connection.send_json({
                     "type": "session_ended",
                     "message": "The presenter has ended this session",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 })
                 await connection.close()
             except Exception as e:
@@ -295,8 +295,8 @@ async def create_session(request: SessionCreateRequest, db: Session = Depends(ge
         new_session = SessionDB(
             session_id=request.session_id,
             status="active",
-            created_at=datetime.utcnow(),
-            last_activity=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            last_activity=datetime.now(timezone.utc)
         )
         db.add(new_session)
         db.commit()
@@ -474,7 +474,7 @@ async def websocket_presenter_endpoint(websocket: WebSocket, session_id: str):
                     } for q in questions
                 ]
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
         is_last_presenter = False
@@ -526,12 +526,12 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
             session_id=reaction.session_id,
             user_id=reaction.user_id,
             user_name=reaction.user_name,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
         db.add(new_reaction)
         
         session.reaction_count += 1
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
         db.commit()
         
         # Notify AI agents
@@ -543,7 +543,7 @@ async def submit_reaction(reaction: ReactionEvent, db: Session = Depends(get_db)
             "data": {
                 "reaction_type": reaction.reaction_type.value,
                 "user_name": reaction.user_name,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         })
         
@@ -561,7 +561,7 @@ async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)
             raise HTTPException(status_code=404, detail="Session not found or has ended")
         
         # Create timestamp
-        question_timestamp = datetime.utcnow()
+        question_timestamp = datetime.now(timezone.utc)
         
         new_question = QuestionDB(
             question_text=question.question_text,
@@ -573,7 +573,7 @@ async def submit_question(question: QuestionEvent, db: Session = Depends(get_db)
         db.add(new_question)
         
         session.question_count += 1
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
         db.commit()
         
         # Notify AI agents - ensure user_name is not None
