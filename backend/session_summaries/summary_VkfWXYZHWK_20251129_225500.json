@@ -1,0 +1,51 @@
+{
+  "session_id": "VkfWXYZHWK",
+  "timestamp": "2025-11-29T22:55:00.656512+00:00",
+  "session_duration_minutes": 661.0,
+  "overall_summary": "Session lasted 661.0 minutes with 4 reactions and 0 questions. Low engagement.",
+  "reaction_analysis": {
+    "total": 4,
+    "breakdown": {
+      "SPEED_UP": 2,
+      "SHOW_CODE": 2
+    },
+    "dominant_reaction": {
+      "type": "SPEED_UP",
+      "count": 2,
+      "percentage": 50.0
+    },
+    "engagement_level": "Low engagement",
+    "sentiment": "positive",
+    "code_requests": 2,
+    "confusion_signals": 0
+  },
+  "question_analysis": {
+    "total": 0,
+    "themes": [],
+    "top_concerns": [],
+    "quality_assessment": "No questions asked"
+  },
+  "pacing_analysis": {
+    "assessment": "Too slow - audience wanted faster pace",
+    "total_pacing_alerts": 0,
+    "critical_moments": 0,
+    "speed_up_requests": 2,
+    "slow_down_requests": 0,
+    "pacing_score": 90
+  },
+  "recommendations": [
+    {
+      "category": "engagement",
+      "priority": "medium",
+      "recommendation": "Increase audience interaction and ask more questions",
+      "rationale": "Low overall engagement during the session"
+    }
+  ],
+  "statistics": {
+    "total_reactions": 4,
+    "total_questions": 0,
+    "total_alerts": 0,
+    "reactions_per_minute": 0.01,
+    "questions_per_minute": 0.0
+  }
+}

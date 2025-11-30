@@ -1,113 +1,110 @@
-'use client';
+"use client"
 
-import { api } from '@/lib/api';
-import { getUserId } from '@/lib/userUtils';
-import { ChangeEvent, FormEvent, useRef, useState } from 'react';
+import { api } from "@/lib/api"
+import { getUserId } from "@/lib/userUtils"
+import { type ChangeEvent, type FormEvent, useRef, useState } from "react"
 
 interface QuestionInputProps {
-  sessionId: string;
-  userName: string;
+  sessionId: string
+  userName: string
 }
 
-const MAX_CHARACTERS = 500;
+const MAX_CHARACTERS = 500
 
 export default function QuestionInput({ sessionId, userName }: QuestionInputProps) {
-  const [question, setQuestion] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [question, setQuestion] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // Track last submission to prevent duplicates
-  const lastSubmitTime = useRef<number>(0);
-  const lastSubmittedQuestion = useRef<string>('');
-  const isSubmittingRef = useRef<boolean>(false);
+  const lastSubmitTime = useRef<number>(0)
+  const lastSubmittedQuestion = useRef<string>("")
+  const isSubmittingRef = useRef<boolean>(false)
 
-  const remainingChars = MAX_CHARACTERS - question.length;
-  const isOverLimit = remainingChars < 0;
+  const remainingChars = MAX_CHARACTERS - question.length
+  const isOverLimit = remainingChars < 0
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    setQuestion(e.target.value);
-    setMessage(null);
-  };
+    setQuestion(e.target.value)
+    setMessage(null)
+  }
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
-    const trimmedQuestion = question.trim();
+    const trimmedQuestion = question.trim()
 
     if (!trimmedQuestion) {
-      setMessage({ type: 'error', text: 'Please enter a question' });
-      return;
+      setMessage({ type: "error", text: "Please enter a question" })
+      return
     }
 
     if (isOverLimit) {
-      setMessage({ type: 'error', text: 'Question is too long' });
-      return;
+      setMessage({ type: "error", text: "Question is too long" })
+      return
     }
 
     // Check if already submitting
     if (isSubmittingRef.current) {
-      console.log('⏳ Already submitting a question, ignoring duplicate submission');
-      return;
+      console.log("⏳ Already submitting a question, ignoring duplicate submission")
+      return
     }
 
     // Prevent duplicate submissions of the same question within 3 seconds
-    const now = Date.now();
-    const timeSinceLastSubmit = now - lastSubmitTime.current;
-    const isSameQuestion = trimmedQuestion === lastSubmittedQuestion.current;
-    
+    const now = Date.now()
+    const timeSinceLastSubmit = now - lastSubmitTime.current
+    const isSameQuestion = trimmedQuestion === lastSubmittedQuestion.current
+
     if (isSameQuestion && timeSinceLastSubmit < 3000) {
-      console.log(`⏳ Duplicate question detected (${timeSinceLastSubmit}ms ago), skipping...`);
-      setMessage({ type: 'error', text: 'Question already submitted!' });
-      setTimeout(() => setMessage(null), 2000);
-      return;
+      console.log(`⏳ Duplicate question detected (${timeSinceLastSubmit}ms ago), skipping...`)
+      setMessage({ type: "error", text: "Question already submitted!" })
+      setTimeout(() => setMessage(null), 2000)
+      return
     }
 
     // Mark as submitting
-    isSubmittingRef.current = true;
-    setIsSubmitting(true);
-    setMessage(null);
-    lastSubmitTime.current = now;
-    lastSubmittedQuestion.current = trimmedQuestion;
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
+    setMessage(null)
+    lastSubmitTime.current = now
+    lastSubmittedQuestion.current = trimmedQuestion
 
     try {
-      const userId = getUserId();
-      
-      console.log(`📤 Sending question: "${trimmedQuestion.substring(0, 50)}..."`);
-      
+      const userId = getUserId()
+
+      console.log(`📤 Sending question: "${trimmedQuestion.substring(0, 50)}..."`)
+
       await api.submitQuestion({
         question_text: trimmedQuestion,
         session_id: sessionId,
         user_id: userId,
         user_name: userName,
-      });
+      })
 
-      console.log('✅ Question sent successfully');
-      setMessage({ type: 'success', text: 'Question submitted successfully!' });
-      setQuestion('');
-      
+      console.log("✅ Question sent successfully")
+      setMessage({ type: "success", text: "Question submitted successfully!" })
+      setQuestion("")
+
       // Clear the last submitted question after 5 seconds (allow asking similar questions later)
       setTimeout(() => {
-        lastSubmittedQuestion.current = '';
-      }, 5000);
-
+        lastSubmittedQuestion.current = ""
+      }, 5000)
     } catch (error) {
-      console.error('❌ Error submitting question:', error);
+      console.error("❌ Error submitting question:", error)
       setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to submit question',
-      });
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to submit question",
+      })
     } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-      setTimeout(() => setMessage(null), 5000);
+      isSubmittingRef.current = false
+      setIsSubmitting(false)
+      setTimeout(() => setMessage(null), 5000)
     }
-  };
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto px-4">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100">
-        Ask a Question
-      </h2>
+      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100">Ask a Question</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="relative">
@@ -127,13 +124,13 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
               text-gray-900 dark:text-gray-100
               placeholder-gray-400 dark:placeholder-gray-500
               transition-colors
-              ${isOverLimit ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
+              ${isOverLimit ? "border-red-500" : "border-gray-300 dark:border-gray-600"}
             `}
           />
           <div
             className={`
               absolute bottom-3 right-3 text-sm font-medium
-              ${isOverLimit ? 'text-red-600 dark:text-red-400' : remainingChars < 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}
+              ${isOverLimit ? "text-red-600 dark:text-red-400" : remainingChars < 50 ? "text-yellow-600 dark:text-yellow-400" : "text-gray-500 dark:text-gray-400"}
             `}
           >
             {remainingChars} chars left
@@ -161,14 +158,7 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
                 fill="none"
                 viewBox="0 0 24 24"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path
                   className="opacity-75"
                   fill="currentColor"
@@ -178,7 +168,7 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
               Submitting...
             </span>
           ) : (
-            '📤 Submit Question'
+            "📤 Submit Question"
           )}
         </button>
       </form>
@@ -187,9 +177,11 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
         <div
           className={`
             mt-4 p-4 rounded-lg text-center font-medium transition-all
-            ${message.type === 'success' 
-              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}
+            ${
+              message.type === "success"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+            }
           `}
         >
           {message.text}
@@ -202,5 +194,5 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
         </p>
       </div>
     </div>
-  );
+  )
 }
