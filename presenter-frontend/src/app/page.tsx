@@ -452,7 +452,7 @@ export default function PresenterPage() {
                   <SentimentMonitor alerts={aiAlerts} />
                 </div>
 
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/20 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300 overflow-y-auto max-h-[600px]">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/20 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300 overflow-y-auto max-h-[600px] hide-scrollbar">
                   <AIInsightsPanel alerts={aiAlerts} />
                 </div>
               </div>
@@ -467,7 +467,7 @@ export default function PresenterPage() {
                   <ReactionDisplay reactions={reactions} />
                 </div>
 
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/20 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300 overflow-y-auto max-h-[600px]">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/20 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300 overflow-y-auto max-h-[600px] hide-scrollbar">
                   <QuestionFeed questions={questions} />
                 </div>
               </div>
@@ -484,7 +484,7 @@ export default function PresenterPage() {
       {/* Session Summary Modal */}
       <SessionSummaryModal summary={sessionSummary} onClose={handleSummaryClose} />
 
-      {/* Animations - same as landing page */}
+      {/* Animations + Hide Scrollbar Styles */}
       <style jsx>{`
         @keyframes blob {
           0%, 100% {
@@ -508,6 +508,16 @@ export default function PresenterPage() {
 
         .animation-delay-4000 {
           animation-delay: 4s;
+        }
+
+        /* Hide scrollbar but keep functionality */
+        :global(.hide-scrollbar) {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        :global(.hide-scrollbar::-webkit-scrollbar) {
+          display: none;
         }
       `}</style>
     </div>

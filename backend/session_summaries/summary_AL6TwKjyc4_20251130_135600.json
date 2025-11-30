@@ -1,0 +1,59 @@
+{
+  "session_id": "AL6TwKjyc4",
+  "timestamp": "2025-11-30T13:56:00.121952+00:00",
+  "session_duration_minutes": 719.1,
+  "overall_summary": "Session lasted 719.1 minutes with 46 reactions and 0 questions. High engagement.",
+  "reaction_analysis": {
+    "total": 46,
+    "breakdown": {
+      "SPEED_UP": 16,
+      "IM_LOST": 8,
+      "SHOW_CODE": 9,
+      "SLOW_DOWN": 13
+    },
+    "dominant_reaction": {
+      "type": "SPEED_UP",
+      "count": 16,
+      "percentage": 34.8
+    },
+    "engagement_level": "High engagement",
+    "sentiment": "neutral",
+    "code_requests": 9,
+    "confusion_signals": 21
+  },
+  "question_analysis": {
+    "total": 0,
+    "themes": [],
+    "top_concerns": [],
+    "quality_assessment": "No questions asked"
+  },
+  "pacing_analysis": {
+    "assessment": "Mixed feedback - some sections too fast, others too slow",
+    "total_pacing_alerts": 0,
+    "critical_moments": 0,
+    "speed_up_requests": 16,
+    "slow_down_requests": 13,
+    "pacing_score": 90
+  },
+  "recommendations": [
+    {
+      "category": "content",
+      "priority": "high",
+      "recommendation": "Include more live coding demonstrations",
+      "rationale": "Audience requested code examples 9 times"
+    },
+    {
+      "category": "clarity",
+      "priority": "high",
+      "recommendation": "Simplify complex concepts and provide more examples",
+      "rationale": "Received 21 confusion signals from audience"
+    }
+  ],
+  "statistics": {
+    "total_reactions": 46,
+    "total_questions": 0,
+    "total_alerts": 27,
+    "reactions_per_minute": 0.06,
+    "questions_per_minute": 0.0
+  }
+}

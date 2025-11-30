@@ -17,7 +17,7 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [isFocused, setIsFocused] = useState(false)
 
-  // Track last submission to prevent duplicates
+   
   const lastSubmitTime = useRef<number>(0)
   const lastSubmittedQuestion = useRef<string>("")
   const isSubmittingRef = useRef<boolean>(false)
@@ -45,13 +45,13 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
       return
     }
 
-    // Check if already submitting
+    
     if (isSubmittingRef.current) {
       console.log("⏳ Already submitting a question, ignoring duplicate submission")
       return
     }
 
-    // Prevent duplicate submissions of the same question within 3 seconds
+     
     const now = Date.now()
     const timeSinceLastSubmit = now - lastSubmitTime.current
     const isSameQuestion = trimmedQuestion === lastSubmittedQuestion.current
@@ -63,7 +63,7 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
       return
     }
 
-    // Mark as submitting
+    
     isSubmittingRef.current = true
     setIsSubmitting(true)
     setMessage(null)
@@ -86,7 +86,7 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
       setMessage({ type: "success", text: "Question submitted successfully!" })
       setQuestion("")
 
-      // Clear the last submitted question after 5 seconds (allow asking similar questions later)
+      
       setTimeout(() => {
         lastSubmittedQuestion.current = ""
       }, 5000)

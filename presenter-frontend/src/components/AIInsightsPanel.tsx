@@ -111,6 +111,16 @@ export default function AIInsightsPanel({ alerts }: AIInsightsPanelProps) {
 
   return (
     <div className="space-y-6">
+      <style jsx>{`
+        .hide-scrollbar {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-400 dark:to-blue-400 bg-clip-text text-transparent flex items-center gap-2">
           <span className="text-4xl">🤖</span>
@@ -155,7 +165,7 @@ export default function AIInsightsPanel({ alerts }: AIInsightsPanelProps) {
         </button>
       </div>
 
-      <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+      <div className="space-y-4 max-h-[600px] overflow-y-auto hide-scrollbar">
         {filteredAlerts.length === 0 ? (
           <div className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-12 text-center shadow-xl border-2 border-gray-200 dark:border-gray-700">
             <div className="text-6xl mb-4">🤖</div>

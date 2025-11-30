@@ -1,0 +1,59 @@
+{
+  "session_id": "xBEKSPhjpr",
+  "timestamp": "2025-11-30T16:20:00.099406+00:00",
+  "session_duration_minutes": 688.8,
+  "overall_summary": "Session lasted 688.8 minutes with 24 reactions and 8 questions. Moderate engagement.",
+  "reaction_analysis": {
+    "total": 24,
+    "breakdown": {
+      "SLOW_DOWN": 10,
+      "SHOW_CODE": 14
+    },
+    "dominant_reaction": {
+      "type": "SHOW_CODE",
+      "count": 14,
+      "percentage": 58.3
+    },
+    "engagement_level": "Moderate engagement",
+    "sentiment": "concerning",
+    "code_requests": 14,
+    "confusion_signals": 10
+  },
+  "question_analysis": {
+    "total": 8,
+    "themes": [
+      {
+        "theme": "Technical Questions",
+        "count": 8,
+        "example": "can u speed up!"
+      }
+    ],
+    "top_concerns": [
+      "Questions require manual review"
+    ],
+    "quality_assessment": "8 questions received during session"
+  },
+  "pacing_analysis": {
+    "assessment": "Too fast - audience struggled to keep up",
+    "total_pacing_alerts": 0,
+    "critical_moments": 0,
+    "speed_up_requests": 0,
+    "slow_down_requests": 10,
+    "pacing_score": 90
+  },
+  "recommendations": [
+    {
+      "category": "content",
+      "priority": "high",
+      "recommendation": "Include more live coding demonstrations",
+      "rationale": "Audience requested code examples 14 times"
+    }
+  ],
+  "statistics": {
+    "total_reactions": 24,
+    "total_questions": 8,
+    "total_alerts": 23,
+    "reactions_per_minute": 0.03,
+    "questions_per_minute": 0.01
+  }
+}

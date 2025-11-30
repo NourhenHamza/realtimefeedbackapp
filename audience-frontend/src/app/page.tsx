@@ -1,26 +1,72 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export default function ModernLandingPage() {
   const [hoveredCard, setHoveredCard] = useState<"audience" | "presenter" | null>(null)
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  useEffect(() => {
+   
+    const storedTheme = localStorage.getItem("theme")
+    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+    
+    const shouldBeDark = storedTheme === "dark" || (!storedTheme && systemPrefersDark)
+    setIsDarkMode(shouldBeDark)
+    
+    if (shouldBeDark) {
+      document.documentElement.classList.add("dark")
+    }
+  }, [])
+
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode
+    setIsDarkMode(newMode)
+    
+    if (newMode) {
+      document.documentElement.classList.add("dark")
+      localStorage.setItem("theme", "dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+      localStorage.setItem("theme", "light")
+    }
+  }
+
+  const DarkModeToggle = () => (
+    <button
+      onClick={toggleDarkMode}
+      className="fixed top-6 right-6 z-50 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 border-2 border-gray-200 dark:border-gray-700"
+      aria-label="Toggle dark mode"
+    >
+      {isDarkMode ? (
+        <svg className="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+        </svg>
+      ) : (
+        <svg className="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+        </svg>
+      )}
+    </button>
+  )
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-black">
-      {/* Background gradient orbs - now with yellow */}
+      <DarkModeToggle />
+      
+      {/* Background gradient circles - same as audience page */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-cyan-300 dark:bg-cyan-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
-        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-yellow-300 dark:bg-yellow-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-6000" />
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-200 dark:bg-yellow-800 rounded-full opacity-40 animate-blob" />
+        <div className="absolute top-1/3 -left-32 w-80 h-80 bg-blue-200 dark:bg-blue-800 rounded-full opacity-40 animate-blob animation-delay-2000" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-pink-200 dark:bg-pink-800 rounded-full opacity-40 animate-blob animation-delay-4000" />
       </div>
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
         <div className="max-w-6xl w-full">
           {/* Header */}
-          <div className="text-center mb-16 md:mb-20">
+          <div className="text-center mb-8 md:mb-8">
             <div className="mb-8">
               <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 dark:from-purple-400 dark:via-pink-400 dark:to-cyan-400 bg-clip-text text-transparent">
                 Live Feedback Platform
@@ -54,7 +100,7 @@ export default function ModernLandingPage() {
                 `}
               >
                 <div className="text-center">
-                  <div className="text-6xl md:text-7xl mb-6 group-hover:scale-110 transition-all duration-300">👥</div>
+                  <div className="text-6xl md:text-7xl mb-6 group-hover:scale-110 transition-all duration-300">💥</div>
                   <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
                     Join as Audience
                   </h2>
@@ -82,7 +128,7 @@ export default function ModernLandingPage() {
                     </div>
                   </div>
 
-                  <button className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
+                  <button className="w-full bg-gradient-to-r from-cyan-100 to-blue-400 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
                     Join Session →
                   </button>
                 </div>
@@ -131,39 +177,12 @@ export default function ModernLandingPage() {
                     </div>
                   </div>
 
-                  <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
+                  <button className="w-full bg-gradient-to-r from-purple-200 to-pink-400 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl">
                     Start Presenting →
                   </button>
                 </div>
               </div>
             </a>
-          </div>
-
-          {/* Features Section */}
-          <div className="bg-white dark:bg-gray-800/50 backdrop-blur-xl rounded-3xl shadow-xl p-8 md:p-12 max-w-4xl mx-auto mb-16 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-10 text-center">✨ Why Choose Us</h3>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="text-center group">
-                <div className="text-5xl mb-4 group-hover:scale-110 transition-all duration-300">⚡</div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Real-Time</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Instant feedback via WebSocket</p>
-              </div>
-              <div className="text-center group">
-                <div className="text-5xl mb-4 group-hover:scale-110 transition-all duration-300">🎨</div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Modern Design</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Beautiful, responsive interface</p>
-              </div>
-              <div className="text-center group">
-                <div className="text-5xl mb-4 group-hover:scale-110 transition-all duration-300">📊</div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Analytics</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Detailed session insights</p>
-              </div>
-              <div className="text-center group">
-                <div className="text-5xl mb-4 group-hover:scale-110 transition-all duration-300">🌙</div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Dark Mode</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Easy on the eyes anytime</p>
-              </div>
-            </div>
           </div>
 
           {/* Footer */}
@@ -197,10 +216,6 @@ export default function ModernLandingPage() {
 
         .animation-delay-4000 {
           animation-delay: 4s;
-        }
-
-        .animation-delay-6000 {
-          animation-delay: 6s;
         }
       `}</style>
     </main>

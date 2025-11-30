@@ -83,20 +83,25 @@ export default function ModernReactionButtons({ sessionId, userName }: ModernRea
     if (!buttonRef.current) return
 
     const rect = buttonRef.current.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2-300
-    // Start from the top-center of the button emoji (subtract half height and add small offset)
-    const centerY = rect.top + rect.height - 200 // Start from upper portion of emoji
+    
+   
+    const isMobile = window.innerWidth < 768
+    const horizontalOffset = isMobile ? -50 : -350  
+    const verticalOffset = isMobile ? -250 : -200    
+    
+    const centerX = rect.left + rect.width / 2 + horizontalOffset
+    const centerY = rect.top + rect.height + verticalOffset
 
     const newEmojis: FloatingEmojiData[] = []
-    const count = Math.floor(Math.random() * 3) + 4 // 4-6 emojis
+    const count = Math.floor(Math.random() * 3) + 4  
 
     for (let i = 0; i < count; i++) {
-      // Create emojis in a burst pattern from the button center
-      const spreadAngle = (Math.random() - 0.5) * 60 // -30 to +30 degrees spread
-      const baseAngle = -90 + spreadAngle // Mostly upward with some spread
+      
+      const spreadAngle = (Math.random() - 0.5) * 60  
+      const baseAngle = -90 + spreadAngle  
       const angleRad = (baseAngle * Math.PI) / 180
       
-      // Small initial offset for burst effect
+       
       const initialRadius = Math.random() * 15
       const startX = centerX + Math.cos(angleRad) * initialRadius
       const startY = centerY + Math.sin(angleRad) * initialRadius
@@ -106,12 +111,12 @@ export default function ModernReactionButtons({ sessionId, userName }: ModernRea
         emoji,
         x: startX,
         y: startY,
-        xOffset: (Math.random() - 0.5) * 150, // Horizontal drift during flight
+        xOffset: (Math.random() - 0.5) * 150,  
         xOffsetEnd: (Math.random() - 0.5) * 250,
         rotation: Math.random() * 360,
         rotationEnd: Math.random() * 720 - 360,
         duration: 1.8 + Math.random() * 0.7,
-        delay: i * 0.08, // Stagger the emojis slightly
+        delay: i * 0.08,  
       })
     }
 
