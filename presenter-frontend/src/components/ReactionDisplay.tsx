@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Reaction, ReactionType } from '../lib/api';
 
 interface ReactionDisplayProps {
@@ -9,35 +9,45 @@ interface ReactionDisplayProps {
 
 const reactionConfig: Record<
   ReactionType,
-  { label: string; icon: string; color: string; bgColor: string }
+  { label: string; icon: string; color: string; bgColor: string; gradient: string; glowColor: string }
 > = {
   SPEED_UP: {
     label: 'Speed Up',
     icon: '⚡',
-    color: 'text-green-700',
-    bgColor: 'bg-green-100',
+    color: 'text-emerald-600',
+    bgColor: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950',
+    gradient: 'from-emerald-400 to-teal-400',
+    glowColor: 'rgba(16, 185, 129, 0.8)',
   },
   SLOW_DOWN: {
     label: 'Slow Down',
     icon: '🐌',
-    color: 'text-yellow-700',
-    bgColor: 'bg-yellow-100',
+    color: 'text-amber-600',
+    bgColor: 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950',
+    gradient: 'from-amber-400 to-orange-400',
+    glowColor: 'rgba(245, 158, 11, 0.8)',
   },
   SHOW_CODE: {
     label: 'Show Code',
     icon: '💻',
-    color: 'text-blue-700',
-    bgColor: 'bg-blue-100',
+    color: 'text-violet-600',
+    bgColor: 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950 dark:to-purple-950',
+    gradient: 'from-violet-400 to-purple-400',
+    glowColor: 'rgba(139, 92, 246, 0.8)',
   },
   IM_LOST: {
     label: "I'm Lost",
     icon: '😵',
-    color: 'text-red-700',
-    bgColor: 'bg-red-100',
+    color: 'text-rose-600',
+    bgColor: 'bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950 dark:to-pink-950',
+    gradient: 'from-rose-400 to-pink-400',
+    glowColor: 'rgba(244, 63, 94, 0.8)',
   },
 };
 
 export default function ReactionDisplay({ reactions }: ReactionDisplayProps) {
+  const [hoveredReaction, setHoveredReaction] = useState<ReactionType | null>(null);
+
   const reactionCounts = useMemo(() => {
     const counts: Record<ReactionType, number> = {
       SPEED_UP: 0,
@@ -63,48 +73,62 @@ export default function ReactionDisplay({ reactions }: ReactionDisplayProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
           Live Reactions
         </h2>
-        <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+        <div className="px-5 py-2 bg-white dark:bg-gray-700 rounded-full shadow-lg text-base font-bold text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
           Total: {totalReactions}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-5">
         {(Object.keys(reactionConfig) as ReactionType[]).map((type) => {
           const config = reactionConfig[type];
           const count = reactionCounts[type];
           const percentage = getPercentage(count);
+          const isHovered = hoveredReaction === type;
 
           return (
             <div
               key={type}
-              className={`${config.bgColor} rounded-xl p-6 transition-all duration-300 hover:shadow-lg`}
+              className={`${config.bgColor} rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl shadow-xl backdrop-blur-sm border-2 border-white/50 dark:border-gray-700/50`}
+              onMouseEnter={() => setHoveredReaction(type)}
+              onMouseLeave={() => setHoveredReaction(null)}
             >
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <span className="text-4xl" role="img" aria-label={config.label}>
-                    {config.icon}
-                  </span>
-                  <span className={`font-semibold ${config.color}`}>
+                  <div 
+                    className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-md transition-all duration-300"
+                    style={{
+                      filter: isHovered ? `drop-shadow(0 0 20px ${config.glowColor})` : 'none',
+                      transform: isHovered ? 'scale(1.15)' : 'scale(1)'
+                    }}
+                  >
+                    <span className="text-3xl" role="img" aria-label={config.label}>
+                      {config.icon}
+                    </span>
+                  </div>
+                  <span className={`font-bold ${config.color} text-base`}>
                     {config.label}
                   </span>
                 </div>
-                <span className={`text-3xl font-bold ${config.color}`}>
+                <span className={`text-4xl font-bold ${config.color}`}>
                   {count}
                 </span>
               </div>
 
-              <div className="w-full bg-white dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-white/60 dark:bg-gray-700/60 rounded-full h-3 overflow-hidden shadow-inner">
                 <div
-                  className={`h-full ${config.color.replace('text-', 'bg-')} transition-all duration-500`}
-                  style={{ width: `${percentage}%` }}
+                  className={`h-full bg-gradient-to-r ${config.gradient} transition-all duration-700 ease-out rounded-full`}
+                  style={{ 
+                    width: `${percentage}%`,
+                    boxShadow: isHovered ? `0 0 15px ${config.glowColor}` : 'none'
+                  }}
                 />
               </div>
-              <div className={`text-right text-sm mt-1 ${config.color} font-medium`}>
+              <div className={`text-right text-sm mt-2 ${config.color} font-bold`}>
                 {percentage}%
               </div>
             </div>
@@ -114,31 +138,39 @@ export default function ReactionDisplay({ reactions }: ReactionDisplayProps) {
 
       {/* Recent reactions timeline */}
       <div className="mt-8">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+          <span className="text-2xl">📊</span>
           Recent Activity
         </h3>
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-48 overflow-y-auto">
+        <div className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-2xl p-6 max-h-48 overflow-y-auto shadow-xl border-2 border-white/50 dark:border-gray-600/50">
           {reactions.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8 font-medium">
               No reactions yet
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {reactions.slice(0, 10).map((reaction, index) => {
                 const config = reactionConfig[reaction.reaction_type];
                 const time = new Date(reaction.timestamp).toLocaleTimeString();
                 return (
                   <div
                     key={`${reaction.timestamp}-${index}`}
-                    className="flex items-center justify-between text-sm bg-white dark:bg-gray-600 rounded-lg px-3 py-2 pulse-once"
+                    className="flex items-center justify-between bg-white dark:bg-gray-600 rounded-xl px-5 py-3 pulse-once shadow-md hover:shadow-lg transition-all duration-300 hover:scale-102 border border-gray-100 dark:border-gray-500"
                   >
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl">{config.icon}</span>
-                      <span className="font-medium text-gray-700 dark:text-gray-200">
+                    <div className="flex items-center space-x-3">
+                      <span 
+                        className="text-2xl transition-transform duration-300 hover:scale-125"
+                        style={{
+                          filter: `drop-shadow(0 0 8px ${config.glowColor})`
+                        }}
+                      >
+                        {config.icon}
+                      </span>
+                      <span className={`font-semibold ${config.color}`}>
                         {config.label}
                       </span>
                     </div>
-                    <span className="text-gray-500 dark:text-gray-400 text-xs">
+                    <span className="text-gray-500 dark:text-gray-400 text-xs font-medium">
                       {time}
                     </span>
                   </div>

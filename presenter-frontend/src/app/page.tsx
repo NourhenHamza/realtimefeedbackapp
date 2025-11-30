@@ -241,12 +241,12 @@ export default function PresenterPage() {
   if (!isSessionActive) {
     return (
       <div className={isDarkMode ? "dark" : ""}>
-        <main className="min-h-screen bg-gradient-to-br from-white via-purple-50 to-blue-50 dark:from-gray-950 dark:via-purple-950 dark:to-gray-900 p-4 sm:p-6">
-          {/* Background gradient orbs */}
+        <main className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-black p-4 sm:p-6">
+          {/* Background gradient circles - same as landing page */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
-            <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-cyan-300 dark:bg-cyan-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
+            <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-200 dark:bg-yellow-800 rounded-full opacity-40 animate-blob" />
+            <div className="absolute top-1/3 -left-32 w-80 h-80 bg-blue-200 dark:bg-blue-800 rounded-full opacity-40 animate-blob animation-delay-2000" />
+            <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-pink-200 dark:bg-pink-800 rounded-full opacity-40 animate-blob animation-delay-4000" />
           </div>
 
           <div className="relative z-10 flex items-center justify-center min-h-screen">
@@ -311,19 +311,45 @@ export default function PresenterPage() {
         </main>
 
         <SessionSummaryModal summary={sessionSummary} onClose={handleSummaryClose} />
+
+        {/* Animations - same as landing page */}
+        <style jsx>{`
+          @keyframes blob {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+            }
+            33% {
+              transform: translate(30px, -50px) scale(1.1);
+            }
+            66% {
+              transform: translate(-20px, 20px) scale(0.9);
+            }
+          }
+
+          .animate-blob {
+            animation: blob 7s infinite;
+          }
+
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+
+          .animation-delay-4000 {
+            animation-delay: 4s;
+          }
+        `}</style>
       </div>
     )
   }
 
   return (
     <div className={isDarkMode ? "dark" : ""}>
-      <main className="min-h-screen bg-gradient-to-br from-white via-purple-50 to-blue-50 dark:from-gray-950 dark:via-purple-950 dark:to-gray-900 transition-colors duration-300">
-        {/* Background gradient orbs */}
+      <main className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-black transition-colors duration-300">
+        {/* Background gradient circles - same as landing page */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
-          <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-cyan-300 dark:bg-cyan-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
-          <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-yellow-300 dark:bg-yellow-900 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-6000" />
+          <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-200 dark:bg-yellow-800 rounded-full opacity-40 animate-blob" />
+          <div className="absolute top-1/3 -left-32 w-80 h-80 bg-blue-200 dark:bg-blue-800 rounded-full opacity-40 animate-blob animation-delay-2000" />
+          <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-pink-200 dark:bg-pink-800 rounded-full opacity-40 animate-blob animation-delay-4000" />
         </div>
 
         <div className="relative z-10 p-4 sm:p-6 lg:p-8">
@@ -457,6 +483,33 @@ export default function PresenterPage() {
 
       {/* Session Summary Modal */}
       <SessionSummaryModal summary={sessionSummary} onClose={handleSummaryClose} />
+
+      {/* Animations - same as landing page */}
+      <style jsx>{`
+        @keyframes blob {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+        }
+
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   )
 }
