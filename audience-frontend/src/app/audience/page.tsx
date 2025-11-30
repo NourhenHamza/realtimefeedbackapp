@@ -13,6 +13,20 @@ export default function AudiencePage() {
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState<string>("")
   const [step, setStep] = useState<"session" | "name">("session")
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  useEffect(() => {
+    // Check system preference and stored preference
+    const storedTheme = localStorage.getItem("theme")
+    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+    
+    const shouldBeDark = storedTheme === "dark" || (!storedTheme && systemPrefersDark)
+    setIsDarkMode(shouldBeDark)
+    
+    if (shouldBeDark) {
+      document.documentElement.classList.add("dark")
+    }
+  }, [])
 
   useEffect(() => {
     const storedSessionId = localStorage.getItem("audience_session_id")
@@ -27,6 +41,19 @@ export default function AudiencePage() {
       setStep("name")
     }
   }, [])
+
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode
+    setIsDarkMode(newMode)
+    
+    if (newMode) {
+      document.documentElement.classList.add("dark")
+      localStorage.setItem("theme", "dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+      localStorage.setItem("theme", "light")
+    }
+  }
 
   const validateAndJoinSession = async (sessionIdToValidate: string) => {
     setIsValidating(true)
@@ -94,10 +121,37 @@ export default function AudiencePage() {
     setStep("session")
   }
 
+  const DarkModeToggle = () => (
+    <button
+      onClick={toggleDarkMode}
+      className="fixed top-6 right-6 z-50 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 border-2 border-gray-200 dark:border-gray-700"
+      aria-label="Toggle dark mode"
+    >
+      {isDarkMode ? (
+        <svg className="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+        </svg>
+      ) : (
+        <svg className="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+        </svg>
+      )}
+    </button>
+  )
+
   if (step === "session" && !isSessionSet) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full backdrop-blur-xl border border-gray-200 dark:border-gray-700">
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-black p-4">
+        <DarkModeToggle />
+        
+        {/* Background gradient circles */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-200 dark:bg-yellow-800 rounded-full opacity-40 animate-blob" />
+          <div className="absolute top-1/3 -left-32 w-80 h-80 bg-blue-200 dark:bg-blue-800 rounded-full opacity-40 animate-blob animation-delay-2000" />
+          <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-pink-200 dark:bg-pink-800 rounded-full opacity-40 animate-blob animation-delay-4000" />
+        </div>
+
+        <div className="relative z-10 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full backdrop-blur-xl border border-gray-200 dark:border-gray-700">
           <div className="text-center mb-8">
             <div className="text-6xl mb-4">👥</div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 dark:from-cyan-400 dark:to-blue-400 bg-clip-text text-transparent mb-2">
@@ -136,14 +190,49 @@ export default function AudiencePage() {
             </button>
           </form>
         </div>
+
+        <style jsx>{`
+          @keyframes blob {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+            }
+            33% {
+              transform: translate(30px, -50px) scale(1.1);
+            }
+            66% {
+              transform: translate(-20px, 20px) scale(0.9);
+            }
+          }
+
+          .animate-blob {
+            animation: blob 7s infinite;
+          }
+
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+
+          .animation-delay-4000 {
+            animation-delay: 4s;
+          }
+        `}</style>
       </main>
     )
   }
 
   if (step === "name" && !isSessionSet) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full backdrop-blur-xl border border-gray-200 dark:border-gray-700">
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-black p-4">
+        <DarkModeToggle />
+        
+        {/* Background gradient circles */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-200 dark:bg-yellow-800 rounded-full opacity-40 animate-blob" />
+          <div className="absolute top-1/3 -left-32 w-80 h-80 bg-blue-200 dark:bg-blue-800 rounded-full opacity-40 animate-blob animation-delay-2000" />
+          <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-pink-200 dark:bg-pink-800 rounded-full opacity-40 animate-blob animation-delay-4000" />
+        </div>
+
+        <div className="relative z-10 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full backdrop-blur-xl border border-gray-200 dark:border-gray-700">
           <div className="text-center mb-8">
             <div className="text-6xl mb-4">✏️</div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent mb-2">
@@ -195,32 +284,67 @@ export default function AudiencePage() {
             </div>
           </form>
         </div>
+
+        <style jsx>{`
+          @keyframes blob {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+            }
+            33% {
+              transform: translate(30px, -50px) scale(1.1);
+            }
+            66% {
+              transform: translate(-20px, 20px) scale(0.9);
+            }
+          }
+
+          .animate-blob {
+            animation: blob 7s infinite;
+          }
+
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+
+          .animation-delay-4000 {
+            animation-delay: 4s;
+          }
+        `}</style>
       </main>
     )
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-black py-8">
-      <div className="container mx-auto max-w-4xl">
+      <DarkModeToggle />
+      
+      {/* Background gradient circles */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-200 dark:bg-yellow-800 rounded-full opacity-40 animate-blob" />
+        <div className="absolute top-1/3 -left-32 w-80 h-80 bg-blue-200 dark:bg-blue-800 rounded-full opacity-40 animate-blob animation-delay-2000" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-pink-200 dark:bg-pink-800 rounded-full opacity-40 animate-blob animation-delay-4000" />
+      </div>
+
+      <div className="relative z-10 container mx-auto max-w-4xl px-4">
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 mb-8 backdrop-blur-xl border border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent mb-1">
-                Audience Feedback
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent mb-2">
+                👋 Hello, {name}!
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                Session: <span className="font-mono font-semibold">{sessionId}</span>
+                Welcome to the session! We're glad to have you here ✨
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Name: <span className="font-semibold">{name}</span>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Session: <span className="font-mono font-semibold">{sessionId}</span>
               </p>
             </div>
             <button
               onClick={handleLeaveSession}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-all duration-300 shadow-md hover:shadow-lg"
+              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl text-sm font-semibold transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
             >
-              Leave
+              👋 Leave Session
             </button>
           </div>
         </div>
@@ -240,6 +364,32 @@ export default function AudiencePage() {
           <p>Your feedback helps improve the presentation in real-time ✨</p>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes blob {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+        }
+
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </main>
   )
 }

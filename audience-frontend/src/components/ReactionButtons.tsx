@@ -83,7 +83,7 @@ export default function ModernReactionButtons({ sessionId, userName }: ModernRea
     if (!buttonRef.current) return
 
     const rect = buttonRef.current.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
+    const centerX = rect.left + rect.width / 2-300
     // Start from the top-center of the button emoji (subtract half height and add small offset)
     const centerY = rect.top + rect.height - 200 // Start from upper portion of emoji
 

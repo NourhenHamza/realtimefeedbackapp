@@ -15,6 +15,7 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
   const [question, setQuestion] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [isFocused, setIsFocused] = useState(false)
 
   // Track last submission to prevent duplicates
   const lastSubmitTime = useRef<number>(0)
@@ -104,33 +105,53 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
 
   return (
     <div className="w-full max-w-2xl mx-auto px-4">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100">Ask a Question</h2>
+      <h2 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-pink-600 to-cyan-600 dark:from-pink-400 dark:to-cyan-400 bg-clip-text text-transparent">
+        Ask a Question
+      </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="relative">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="relative group">
           <textarea
             value={question}
             onChange={handleChange}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             placeholder="Type your question here..."
             rows={4}
             disabled={isSubmitting}
             className={`
-              w-full px-4 py-3 
-              border-2 rounded-lg 
+              w-full px-6 py-4 
+              border-2 rounded-2xl 
               resize-none
-              focus:outline-none focus:ring-2 focus:ring-blue-500
+              focus:outline-none 
               disabled:opacity-50 disabled:cursor-not-allowed
               bg-white dark:bg-gray-800
               text-gray-900 dark:text-gray-100
               placeholder-gray-400 dark:placeholder-gray-500
-              transition-colors
-              ${isOverLimit ? "border-red-500" : "border-gray-300 dark:border-gray-600"}
+              transition-all duration-300
+              ${isOverLimit 
+                ? "border-red-500 dark:border-red-400" 
+                : isFocused 
+                  ? "border-blue-500 dark:border-blue-400 shadow-lg shadow-blue-500/20" 
+                  : "border-gray-300 dark:border-gray-600"
+              }
             `}
+            style={{
+              filter: isFocused && !isOverLimit
+                ? 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.3))'
+                : 'none'
+            }}
           />
           <div
             className={`
-              absolute bottom-3 right-3 text-sm font-medium
-              ${isOverLimit ? "text-red-600 dark:text-red-400" : remainingChars < 50 ? "text-yellow-600 dark:text-yellow-400" : "text-gray-500 dark:text-gray-400"}
+              absolute bottom-4 right-4 text-sm font-semibold
+              transition-all duration-300
+              ${isOverLimit 
+                ? "text-red-600 dark:text-red-400 scale-110" 
+                : remainingChars < 50 
+                  ? "text-yellow-600 dark:text-yellow-400" 
+                  : "text-gray-500 dark:text-gray-400"
+              }
             `}
           >
             {remainingChars} chars left
@@ -141,19 +162,29 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
           type="submit"
           disabled={isSubmitting || !question.trim() || isOverLimit}
           className={`
-            w-full py-3 px-6
-            bg-blue-600 hover:bg-blue-700
-            text-white font-semibold rounded-lg
-            transition-all duration-200
+            relative w-full py-4 px-6
+            bg-gradient-to-r from-pink-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700
+            dark:from-pink-500 dark:to-cyan-500 dark:hover:from-blue-600 dark:hover:to-cyan-600
+            text-white font-bold text-lg rounded-2xl
+            transition-all duration-300
             transform active:scale-95
             disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-            shadow-md hover:shadow-lg
+            shadow-lg hover:shadow-2xl
+            overflow-hidden group
+            ${!isSubmitting && !isOverLimit && question.trim() ? 'hover:scale-105' : ''}
           `}
+          style={{
+            filter: !isSubmitting && !isOverLimit && question.trim()
+              ? 'drop-shadow(0 0 30px rgba(59, 130, 246, 0.5))'
+              : 'none'
+          }}
         >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+          
           {isSubmitting ? (
-            <span className="flex items-center justify-center">
+            <span className="flex items-center justify-center gap-3">
               <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                className="animate-spin h-6 w-6 text-white"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -168,7 +199,10 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
               Submitting...
             </span>
           ) : (
-            "📤 Submit Question"
+            <span className="flex items-center justify-center gap-2">
+              <span className="text-2xl">📤</span>
+              Submit Question
+            </span>
           )}
         </button>
       </form>
@@ -176,23 +210,43 @@ export default function QuestionInput({ sessionId, userName }: QuestionInputProp
       {message && (
         <div
           className={`
-            mt-4 p-4 rounded-lg text-center font-medium transition-all
+            mt-6 p-4 rounded-2xl text-center font-semibold transition-all duration-300 transform
+            animate-slideIn shadow-xl
             ${
               message.type === "success"
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-200 border-2 border-green-300 dark:border-green-700"
+                : "bg-gradient-to-r from-red-100 to-rose-100 text-red-800 dark:from-red-900/50 dark:to-rose-900/50 dark:text-red-200 border-2 border-red-300 dark:border-red-700"
             }
           `}
         >
+          <span className="text-xl mr-2">{message.type === "success" ? "✅" : "⚠️"}</span>
           {message.text}
         </div>
       )}
 
-      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-        <p className="text-sm text-blue-800 dark:text-blue-200">
-          💡 <strong>Tip:</strong> Be specific and concise for the best response
+      <div className="mt-6 p-5 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl border-2 border-blue-200 dark:border-blue-800 shadow-lg">
+        <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+          <span className="text-xl mr-2">💡</span>
+          <strong>Tip:</strong> Be specific and concise for the best response
         </p>
       </div>
+
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }
